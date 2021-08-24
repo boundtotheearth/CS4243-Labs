@@ -92,7 +92,7 @@ def gray2grad(img):
                     x_index = i + k - 1
                     y_index = j + l - 1
 
-                    if x_index < 0 or x_index >= len(img_grad_h) or y_index < 0 or y_index >= len(img_grad_h[i]):
+                    if i <= 0 or i == len(img_grad_h) - 1 or j <= 0 or j == len(img_grad_h[i]) - 1:
                         continue
 
                     # Filter for h
