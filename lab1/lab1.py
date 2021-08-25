@@ -51,6 +51,7 @@ def gray2grad(img):
 
     ###Your code here####
     ###
+
     return img_grad_h, img_grad_v, img_grad_d1, img_grad_d2
 
 def pad_zeros(img, pad_height_bef, pad_height_aft, pad_width_bef, pad_width_aft):
@@ -97,6 +98,29 @@ def normalized_cross_correlation(img, template):
 
     ###Your code here###
     ###
+    print(img.shape)
+    channels = img.shape[2]
+    Wt =  Wk // 2
+    Ht = Hk // 2
+
+    response = np.zeros((Ho, Wo))
+
+    for h in range(Ht, Hi - Ht):
+        for w in range(Wt, Wi - Wt):
+            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+            template_norm = np.linalg.norm(template)
+            window_norm = np.linalg.norm(window)
+            norm = 1 / (template_norm * window_norm)
+
+            new_value = 0
+            for hk in range(-Ht, Ht + 1):
+                for wk in range(-Wt, Wt + 1):
+                    for c in range(channels):
+                        new_value += template[hk + Ht, wk + Wt, c] * img[h + hk, w + wk, c]
+
+            new_value *= norm
+            response[h - Ht, w - Wt] = new_value
+
     return response
 
 
@@ -116,6 +140,23 @@ def normalized_cross_correlation_fast(img, template):
 
     ###Your code here###
     ###
+    channels = img.shape[2]
+    Wt =  Wk // 2
+    Ht = Hk // 2
+
+    response = np.zeros((Ho, Wo))
+
+    for h in range(Ht, Hi - Ht):
+        for w in range(Wt, Wi - Wt):
+            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+            template_norm = np.linalg.norm(template)
+            window_norm = np.linalg.norm(window)
+            norm = 1 / (template_norm * window_norm)
+
+            new_value = np.sum(np.multiply(window, template).flatten())
+
+            new_value *= norm
+            response[h - Ht, w - Wt] = new_value
     return response
 
 
@@ -137,6 +178,34 @@ def normalized_cross_correlation_matrix(img, template):
 
     ###Your code here###
     ###
+
+    channels = img.shape[2]
+    Wt =  Wk // 2
+    Ht = Hk // 2
+
+    def im2col(img):
+        result = np.array([])
+        for c in range(channels):
+            channel_result = []
+            for h in range(Ht, Hi - Ht):
+                for w in range(Wt, Wi - Wt):
+                    window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1, c]
+                    channel_result.append(window.flatten())
+
+            channel_result = np.array(channel_result)
+            result = np.hstack((result, channel_result)) if result.size else channel_result
+
+        return result
+
+    Fr = np.transpose(template.flatten())
+    Pr = im2col(img)
+
+    print(Fr.shape, Pr.shape)
+    Xr = np.matmul(Pr, Fr)
+    Xr = np.reshape(Xr, (Ho, Wo))
+    norms = 1 / np.sqrt(normalized_cross_correlation(np.square(img), np.ones((Hk, Wk, 3))))
+    response = np.multiply(Xr, norms)
+
     return response
 
 
@@ -160,6 +229,15 @@ def non_max_suppression(response, suppress_range, threshold=None):
     """
     ###Your code here###
     ###
+    H_range = suppress_range[0] // 2
+    W_range = suppress_range[1] // 2
+    threshold = np.where(response < threshold, 0, response)
+    res = []
+    while(np.any(threshold)):
+        max_h, max_w = np.argmax(threshold)
+        threshold[max_h - H_range:max_h + H_range + 1, max_w - W_range:max_w + W_range + 1] = 0
+        res.append((max_h, max_w))
+
     return res
 
 ##### Part 4: Question And Answer #####
