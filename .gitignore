@@ -34,7 +34,7 @@ MANIFEST
 *.spec
 
 # Lab 1 jupyter notebook
-**/ipynb
+.ipynb_checkpoints
 
 # Installer logs
 pip-log.txt
