@@ -227,7 +227,7 @@ def normalized_cross_correlation_ms(img, template):
     """
     10 points
     Please implement mean-subtracted cross correlation which corresponds to OpenCV TM_CCOEFF_NORMED.
-    For simplicty, use the "fast" version.
+    For simplicity, use the "fast" version.
     :param img: numpy.ndarray
     :param template: numpy.ndarray
     :return response: numpy.ndarray. dtype: float
@@ -239,8 +239,32 @@ def normalized_cross_correlation_ms(img, template):
 
     ###Your code here###
     ###
-    return response
+    channels = img.shape[2]
+    Wt =  Wk // 2
+    Ht = Hk // 2
 
+    template = template / np.sum(template)
+    response = np.zeros((Ho, Wo))
+
+    for h in range(Ht, Hi - Ht):
+        for w in range(Wt, Wi - Wt):
+            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+            mean_rgb = np.mean(window, axis=(0, 1))
+            for idx1 in window:
+                for idx2 in window[0]:
+                    window[idx1][idx2] = window[idx1][idx2] - mean_rgb
+
+            template = template - np.mean(template)
+            template_norm = np.linalg.norm(template)
+            window_norm = np.linalg.norm(window)
+            norm = 1 / (template_norm * window_norm)
+
+            new_value = np.sum(np.multiply(window, template).flatten())
+
+            new_value *= norm
+            response[h - Ht, w - Wt] = new_value
+
+    return response
 
 
 
