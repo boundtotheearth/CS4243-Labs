@@ -30,7 +30,7 @@ def rgb2gray(img):
             red = img[i][j][0]
             blue = img[i][j][1]
             green = img[i][j][2]
-            img_gray[i][j] = R * red + B * blue + G * green
+            img_gray[i][j] = int(R * red + B * blue + G * green)
     ###
     return img_gray
 
@@ -60,29 +60,24 @@ def gray2grad(img):
                         [2, 1, 0]], dtype = float)
     
     ###Your code here####
-    # img_filtered_h = img
-    # img_filtered_v = img
-    # img_filtered_d1 = img
-    # img_filtered_d2 = img
+    height, width = img.shape[:2]
+    # img: (492, 800)
+    new_height, new_width = (height + 2), (width + 2)
+    # img_pad: (494, 802)
+    img_pad = np.zeros((new_height, new_width)) # if len(img.shape) == 2 else np.zeros((new_height, new_width, img.shape[2]))
 
-    # cv2.filter2D(img, cv2.CV_8U, sobelh, dst=img_filtered_h)
-    # cv2.filter2D(img, cv2.CV_8U, sobelv, dst=img_filtered_v)
-    # cv2.filter2D(img, cv2.CV_8U, sobeld1, dst=img_filtered_d1)
-    # cv2.filter2D(img, cv2.CV_8U, sobeld2, dst=img_filtered_d2)
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            img_pad[1 + i][1 + j] = img[i][j]
 
-    # img_grad_h = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize = 5)
-    # img_grad_v = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize = 5)
-    # img_grad_d1 = cv2.Sobel(img, cv2.CV_64F, 1, 1, ksize = 5)
-    # img_grad_d2 = cv2.Sobel(img, cv2.CV_64F, 1, -1, ksize = 5)
-    shape_tuple = (img.shape[0], img.shape[1],)
-    img_grad_h = np.empty(shape_tuple, float)
-    img_grad_v = np.empty(shape_tuple, float)
-    img_grad_d1 = np.empty(shape_tuple, float)
-    img_grad_d2 = np.empty(shape_tuple, float)
+    img_grad_h = np.empty((height, width,), int)
+    img_grad_v = np.empty((height, width,), int)
+    img_grad_d1 = np.empty((height, width,), int)
+    img_grad_d2 = np.empty((height, width,), int)
 
     # Sobel Filter
-    for i in range(len(img_grad_h)):
-        for j in range(len(img_grad_h[i])):
+    for i in range(1, len(img_pad) - 1):
+        for j in range(1, len(img_pad[0]) - 1):
             gradient_h = 0
             gradient_v = 0
             gradient_d1 = 0
@@ -92,25 +87,25 @@ def gray2grad(img):
                     x_index = i + k - 1
                     y_index = j + l - 1
 
-                    if i <= 0 or i == len(img_grad_h) - 1 or j <= 0 or j == len(img_grad_h[i]) - 1:
-                        continue
+                    k_convolute = 2 - k
+                    l_convolute = 2 - l
 
                     # Filter for h
-                    gradient_h += img[x_index][y_index] * sobelh[k][l]
+                    gradient_h += img_pad[x_index][y_index] * sobelh[k_convolute][l_convolute]
 
                     # Filter for v
-                    gradient_v += img[x_index][y_index] * sobelv[k][l]
+                    gradient_v += img_pad[x_index][y_index] * sobelv[k_convolute][l_convolute]
 
                     # Filter for d1
-                    gradient_d1 += img[x_index][y_index] * sobeld1[k][l]
+                    gradient_d1 += img_pad[x_index][y_index] * sobeld1[k_convolute][l_convolute]
 
                     # Filter for d2
-                    gradient_d2 += img[x_index][y_index] * sobeld2[k][l]
+                    gradient_d2 += img_pad[x_index][y_index] * sobeld2[k_convolute][l_convolute]
 
-            img_grad_h[i][j] = abs(gradient_h)
-            img_grad_v[i][j] = abs(gradient_v)
-            img_grad_d1[i][j] = abs(gradient_d1)
-            img_grad_d2[i][j] = abs(gradient_d2)
+            img_grad_h[i - 1][j - 1] = gradient_h
+            img_grad_v[i - 1][j - 1] = gradient_v
+            img_grad_d1[i - 1][j - 1] = gradient_d1
+            img_grad_d2[i - 1][j - 1] = gradient_d2
     ###
     return img_grad_h, img_grad_v, img_grad_d1, img_grad_d2
 
