@@ -100,7 +100,6 @@ def normalized_cross_correlation(img, template):
 
     ###Your code here###
 
-    print(img.shape)
     channels = img.shape[2]
     Wt =  Wk // 2
     Ht = Hk // 2
@@ -113,6 +112,7 @@ def normalized_cross_correlation(img, template):
             window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
             template_norm = np.linalg.norm(template)
             window_norm = np.linalg.norm(window)
+
             norm = 1 / (template_norm * window_norm)
 
             new_value = 0
@@ -202,20 +202,22 @@ def normalized_cross_correlation_matrix(img, template):
 
         return result
 
-    Fr = np.transpose(template.flatten())
+    # Fr = np.transpose(template.flatten())
+    Fr = np.swapaxes(template, 0, 2)
+    Fr = np.swapaxes(Fr, 1, 2)
+    Fr = Fr.flatten()
+
     Pr = im2col(img)
 
-    print(Fr.shape, Pr.shape)
     Xr = np.matmul(Pr, Fr)
     Xr = np.reshape(Xr, (Ho, Wo))
-    window_norms = np.sqrt(normalized_cross_correlation_fast(np.square(img), np.ones((Hk, Wk, 3))))
+
+    ones_kernel = np.ones((Hk, Wk, 3)).flatten().transpose()
+    window_norms = np.reshape(np.sqrt(np.matmul(np.square(np.abs(Pr.astype(np.uint64))), ones_kernel)), (Ho, Wo))
     template_norm = np.linalg.norm(template)
     norms = 1 / (window_norms * template_norm)
 
-    print(norms)
     response = np.multiply(Xr, norms)
-
-    print(response)
 
     return response
 
