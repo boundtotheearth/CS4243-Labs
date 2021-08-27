@@ -166,9 +166,9 @@ def normalized_cross_correlation(img, template):
     template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
-    for h in range(Ht, Hi - Ht):
-        for w in range(Wt, Wi - Wt):
-            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+    for h in range(0, Ho):
+        for w in range(0, Wo):
+            window = img[h:h+Hk, w:w+Wk]
             template_norm = np.linalg.norm(template)
             window_norm = np.linalg.norm(window)
 
@@ -178,9 +178,9 @@ def normalized_cross_correlation(img, template):
             for hk in range(-Ht, Ht + 1):
                 for wk in range(-Wt, Wt + 1):
                     for c in range(channels):
-                        new_value += template[hk + Ht, wk + Wt, c] * img[h + hk, w + wk, c]
+                        new_value += template[hk + Ht, wk + Wt, c] * img[h + Ht + hk, w + Wt + wk, c]
             new_value *= norm
-            response[h - Ht, w - Wt] = new_value
+            response[h, w] = new_value
 
     return response
 
@@ -208,9 +208,9 @@ def normalized_cross_correlation_fast(img, template):
     template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
-    for h in range(Ht, Hi - Ht):
-        for w in range(Wt, Wi - Wt):
-            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+    for h in range(0, Ho):
+        for w in range(0, Wo):
+            window = img[h:h+Hk, w:w+Wk]
             template_norm = np.linalg.norm(template)
             window_norm = np.linalg.norm(window)
             norm = 1 / (template_norm * window_norm)
@@ -218,7 +218,7 @@ def normalized_cross_correlation_fast(img, template):
             new_value = np.sum(np.multiply(window, template).flatten())
 
             new_value *= norm
-            response[h - Ht, w - Wt] = new_value
+            response[h, w] = new_value
     return response
 
 
@@ -303,9 +303,9 @@ def non_max_suppression(response, suppress_range, threshold=None):
     ###
     H_range = suppress_range[0] // 2
     W_range = suppress_range[1] // 2
-    threshold = np.where(response < threshold, 0, response)
+    threshold_img = np.where(response < threshold, 0, response)
     res = []
-    while(np.any(threshold)):
+    while(np.any(threshold_img)):
         max_h, max_w = np.argmax(threshold)
         threshold[max_h - H_range:max_h + H_range + 1, max_w - W_range:max_w + W_range + 1] = 0
         res.append((max_h, max_w))
