@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 
+from numpy.linalg import norm
+
 ##### Part 1: image preprossessing #####
 
 def rgb2gray(img):
@@ -97,12 +99,13 @@ def normalized_cross_correlation(img, template):
     Wo = Wi - Wk + 1
 
     ###Your code here###
-    ###
+
     print(img.shape)
     channels = img.shape[2]
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
     for h in range(Ht, Hi - Ht):
@@ -117,7 +120,6 @@ def normalized_cross_correlation(img, template):
                 for wk in range(-Wt, Wt + 1):
                     for c in range(channels):
                         new_value += template[hk + Ht, wk + Wt, c] * img[h + hk, w + wk, c]
-
             new_value *= norm
             response[h - Ht, w - Wt] = new_value
 
@@ -144,6 +146,7 @@ def normalized_cross_correlation_fast(img, template):
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
     for h in range(Ht, Hi - Ht):
@@ -183,6 +186,8 @@ def normalized_cross_correlation_matrix(img, template):
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = template / np.sum(template)
+
     def im2col(img):
         result = np.array([])
         for c in range(channels):
@@ -203,8 +208,14 @@ def normalized_cross_correlation_matrix(img, template):
     print(Fr.shape, Pr.shape)
     Xr = np.matmul(Pr, Fr)
     Xr = np.reshape(Xr, (Ho, Wo))
-    norms = 1 / np.sqrt(normalized_cross_correlation(np.square(img), np.ones((Hk, Wk, 3))))
+    window_norms = np.sqrt(normalized_cross_correlation_fast(np.square(img), np.ones((Hk, Wk, 3))))
+    template_norm = np.linalg.norm(template)
+    norms = 1 / (window_norms * template_norm)
+
+    print(norms)
     response = np.multiply(Xr, norms)
+
+    print(response)
 
     return response
 
