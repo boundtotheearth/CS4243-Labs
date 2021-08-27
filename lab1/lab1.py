@@ -20,6 +20,17 @@ def rgb2gray(img):
         return
     
     ###Your code here###
+    R, G, B = 0.299, 0.587, 0.114
+
+    shape_tuple = (img.shape[0], img.shape[1],)
+    img_gray = np.empty(shape_tuple, int)
+
+    for i in range(len(img_gray)):
+        for j in range(len(img_gray[i])):
+            red = img[i][j][0]
+            blue = img[i][j][1]
+            green = img[i][j][2]
+            img_gray[i][j] = int(R * red + B * blue + G * green)
     ###
     return img_gray
 
@@ -48,8 +59,53 @@ def gray2grad(img):
                         [1, 0, -1],
                         [2, 1, 0]], dtype = float)
     
-
     ###Your code here####
+    height, width = img.shape[:2]
+    # img: (492, 800)
+    new_height, new_width = (height + 2), (width + 2)
+    # img_pad: (494, 802)
+    img_pad = np.zeros((new_height, new_width)) # if len(img.shape) == 2 else np.zeros((new_height, new_width, img.shape[2]))
+
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            img_pad[1 + i][1 + j] = img[i][j]
+
+    img_grad_h = np.empty((height, width,), int)
+    img_grad_v = np.empty((height, width,), int)
+    img_grad_d1 = np.empty((height, width,), int)
+    img_grad_d2 = np.empty((height, width,), int)
+
+    # Sobel Filter
+    for i in range(1, len(img_pad) - 1):
+        for j in range(1, len(img_pad[0]) - 1):
+            gradient_h = 0
+            gradient_v = 0
+            gradient_d1 = 0
+            gradient_d2 = 0
+            for k in range(3):
+                for l in range(3):
+                    x_index = i + k - 1
+                    y_index = j + l - 1
+
+                    k_convolute = 2 - k
+                    l_convolute = 2 - l
+
+                    # Filter for h
+                    gradient_h += img_pad[x_index][y_index] * sobelh[k_convolute][l_convolute]
+
+                    # Filter for v
+                    gradient_v += img_pad[x_index][y_index] * sobelv[k_convolute][l_convolute]
+
+                    # Filter for d1
+                    gradient_d1 += img_pad[x_index][y_index] * sobeld1[k_convolute][l_convolute]
+
+                    # Filter for d2
+                    gradient_d2 += img_pad[x_index][y_index] * sobeld2[k_convolute][l_convolute]
+
+            img_grad_h[i - 1][j - 1] = gradient_h
+            img_grad_v[i - 1][j - 1] = gradient_v
+            img_grad_d1[i - 1][j - 1] = gradient_d1
+            img_grad_d2[i - 1][j - 1] = gradient_d2
     ###
     return img_grad_h, img_grad_v, img_grad_d1, img_grad_d2
 
@@ -74,6 +130,9 @@ def pad_zeros(img, pad_height_bef, pad_height_aft, pad_width_bef, pad_width_aft)
     img_pad = np.zeros((new_height, new_width)) if len(img.shape) == 2 else np.zeros((new_height, new_width, img.shape[2]))
 
     ###Your code here###
+    for i in range(img.shape[0]):
+        for j in range(img.shape[1]):
+            img_pad[pad_width_bef + i][pad_height_bef + j] = img[i][j]
     ###
     return img_pad
 
@@ -168,7 +227,7 @@ def normalized_cross_correlation_ms(img, template):
     """
     10 points
     Please implement mean-subtracted cross correlation which corresponds to OpenCV TM_CCOEFF_NORMED.
-    For simplicty, use the "fast" version.
+    For simplicity, use the "fast" version.
     :param img: numpy.ndarray
     :param template: numpy.ndarray
     :return response: numpy.ndarray. dtype: float
@@ -180,8 +239,32 @@ def normalized_cross_correlation_ms(img, template):
 
     ###Your code here###
     ###
-    return response
+    channels = img.shape[2]
+    Wt =  Wk // 2
+    Ht = Hk // 2
 
+    template = template / np.sum(template)
+    response = np.zeros((Ho, Wo))
+
+    for h in range(Ht, Hi - Ht):
+        for w in range(Wt, Wi - Wt):
+            window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
+            mean_rgb = np.mean(window, axis=(0, 1))
+            for idx1 in window:
+                for idx2 in window[0]:
+                    window[idx1][idx2] = window[idx1][idx2] - mean_rgb
+
+            template = template - np.mean(template)
+            template_norm = np.linalg.norm(template)
+            window_norm = np.linalg.norm(window)
+            norm = 1 / (template_norm * window_norm)
+
+            new_value = np.sum(np.multiply(window, template).flatten())
+
+            new_value *= norm
+            response[h - Ht, w - Wt] = new_value
+
+    return response
 
 
 
@@ -245,3 +328,12 @@ def show_img_with_squares(response, img_ori=None, rec_shape=None):
     else:
         show_imgs(response)
 
+## Delete After ##
+# data_dir = 'inputs'
+# filename = 'wallpaper.jpg'
+# img = read_img(os.path.join(data_dir, filename))
+# # gray_img = rgb2gray(img)
+# # grad_img_h, grad_img_v, grad_img_d1, grad_img_d2 = gray2grad(gray_img)
+# grad_img_d2 = pad_zeros(img, 5, 5, 5, 5)
+# imgplot = plt.imshow(grad_img_d2, cmap='gray', vmin=0, vmax=255)
+# plt.show()

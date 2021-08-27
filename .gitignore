@@ -33,6 +33,9 @@ MANIFEST
 *.manifest
 *.spec
 
+# Lab 1 jupyter notebook
+lab1.ipynb
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
