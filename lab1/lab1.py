@@ -159,7 +159,7 @@ def normalized_cross_correlation(img, template):
 
     ###Your code here###
 
-    channels = img.shape[2]
+    channels = img.shape[2] if len(img.shape) >= 3 else 1
     Wt =  Wk // 2
     Ht = Hk // 2
 
@@ -201,7 +201,7 @@ def normalized_cross_correlation_fast(img, template):
 
     ###Your code here###
     ###
-    channels = img.shape[2]
+    channels = img.shape[2] if len(img.shape) >= 3 else 1
     Wt =  Wk // 2
     Ht = Hk // 2
 
@@ -241,7 +241,7 @@ def normalized_cross_correlation_matrix(img, template):
     ###Your code here###
     ###
 
-    channels = img.shape[2]
+    channels = img.shape[2] if len(img.shape) >= 3 else 1
     Wt =  Wk // 2
     Ht = Hk // 2
 
@@ -304,11 +304,16 @@ def non_max_suppression(response, suppress_range, threshold=None):
     H_range = suppress_range[0] // 2
     W_range = suppress_range[1] // 2
     threshold_img = np.where(response < threshold, 0, response)
-    res = []
+    max_points = []
     while(np.any(threshold_img)):
-        max_h, max_w = np.argmax(threshold)
-        threshold[max_h - H_range:max_h + H_range + 1, max_w - W_range:max_w + W_range + 1] = 0
-        res.append((max_h, max_w))
+        max_h, max_w = np.unravel_index(np.argmax(threshold_img), threshold_img.shape)
+        threshold_img[max_h - H_range:max_h + H_range + 1, max_w - W_range:max_w + W_range + 1] = 0
+        max_points.append((max_h, max_w))
+    
+    res = np.zeros(response.shape)
+    for coord in max_points:
+        res[coord] = 1
+
 
     return res
 
@@ -330,7 +335,7 @@ def normalized_cross_correlation_ms(img, template):
 
     ###Your code here###
     ###
-    channels = img.shape[2]
+    channels = img.shape[2] if len(img.shape) >= 3 else 1
     Wt =  Wk // 2
     Ht = Hk // 2
 
