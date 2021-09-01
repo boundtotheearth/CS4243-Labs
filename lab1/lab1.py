@@ -432,13 +432,3 @@ def show_img_with_squares(response, img_ori=None, rec_shape=None):
         show_imgs([response, img_ori])
     else:
         show_imgs(response)
-
-## Delete After ##
-# data_dir = 'inputs'
-# filename = 'wallpaper.jpg'
-# img = read_img(os.path.join(data_dir, filename))
-# # gray_img = rgb2gray(img)
-# # grad_img_h, grad_img_v, grad_img_d1, grad_img_d2 = gray2grad(gray_img)
-# grad_img_d2 = pad_zeros(img, 5, 5, 5, 5)
-# imgplot = plt.imshow(grad_img_d2, cmap='gray', vmin=0, vmax=255)
-# plt.show()
