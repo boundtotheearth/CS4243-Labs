@@ -346,7 +346,6 @@ def normalized_cross_correlation_ms(img, template):
 
     ###Your code here###
     ###
-    channels = img.shape[2] if len(img.shape) >= 3 else 1
     Wt = Wk // 2
     Ht = Hk // 2
 
