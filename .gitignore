@@ -35,6 +35,7 @@ MANIFEST
 
 # Lab 1 jupyter notebook
 lab1/lab1.ipynb
+lab2/lab2.ipynb
 
 # Installer logs
 pip-log.txt
