@@ -130,14 +130,19 @@ def pad_zeros(img, pad_height_bef, pad_height_aft, pad_width_bef, pad_width_aft)
     """
     height, width = img.shape[:2]
     new_height, new_width = (height + pad_height_bef + pad_height_aft), (width + pad_width_bef + pad_width_aft)
-    img_pad = np.zeros((new_height, new_width)) if len(img.shape) == 2 else np.zeros((new_height, new_width, img.shape[2]))
+    if len(img.shape) == 2:
+        img_pad = np.zeros((new_height, new_width)) 
+    elif len(img.shape) == 3:
+        img_pad = np.zeros((new_height, new_width, img.shape[2]))
+    else:
+        img_pad = np.zeros((new_height, new_width) + (img.shape[2:]))
 
     ###Your code here###
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
-            img_pad[pad_width_bef + i][pad_height_bef + j] = img[i][j]
+            img_pad[pad_height_bef + i][pad_width_bef + j] = img[i][j]
     ###
-    return img_pad
+    return img_pad.astype(img.dtype)
 
 
 
@@ -163,6 +168,7 @@ def normalized_cross_correlation(img, template):
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = np.copy(template)
     template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
@@ -205,6 +211,7 @@ def normalized_cross_correlation_fast(img, template):
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = np.copy(template)
     template = template / np.sum(template)
     response = np.zeros((Ho, Wo))
 
@@ -245,6 +252,7 @@ def normalized_cross_correlation_matrix(img, template):
     Wt =  Wk // 2
     Ht = Hk // 2
 
+    template = np.copy(template)
     template = template / np.sum(template)
 
     def im2col(img):
@@ -301,6 +309,8 @@ def non_max_suppression(response, suppress_range, threshold=None):
     """
     ###Your code here###
     ###
+    if threshold == None:
+        threshold = 0.9
     H_range = suppress_range[0] // 2
     W_range = suppress_range[1] // 2
     threshold_img = np.where(response < threshold, 0, response)
@@ -308,6 +318,7 @@ def non_max_suppression(response, suppress_range, threshold=None):
     while(np.any(threshold_img)):
         max_h, max_w = np.unravel_index(np.argmax(threshold_img), threshold_img.shape)
         threshold_img[max_h - H_range:max_h + H_range + 1, max_w - W_range:max_w + W_range + 1] = 0
+        threshold_img[max_h][max_w] = 0
         max_points.append((max_h, max_w))
     
     res = np.zeros(response.shape)
@@ -335,23 +346,20 @@ def normalized_cross_correlation_ms(img, template):
 
     ###Your code here###
     ###
-    channels = img.shape[2] if len(img.shape) >= 3 else 1
-    Wt =  Wk // 2
+    Wt = Wk // 2
     Ht = Hk // 2
 
-    template = template / np.sum(template)
+    template = np.copy(template)
+    template_mean = np.mean(template, axis=(0, 1))
+    template = template - template_mean
+    template_norm = np.linalg.norm(template)
     response = np.zeros((Ho, Wo))
 
     for h in range(Ht, Hi - Ht):
         for w in range(Wt, Wi - Wt):
             window = img[h-Ht:h+Ht+1, w-Wt:w+Wt+1]
             mean_rgb = np.mean(window, axis=(0, 1))
-            for idx1 in window:
-                for idx2 in window[0]:
-                    window[idx1][idx2] = window[idx1][idx2] - mean_rgb
-
-            template = template - np.mean(template)
-            template_norm = np.linalg.norm(template)
+            window = window - mean_rgb
             window_norm = np.linalg.norm(window)
             norm = 1 / (template_norm * window_norm)
 
@@ -423,13 +431,3 @@ def show_img_with_squares(response, img_ori=None, rec_shape=None):
         show_imgs([response, img_ori])
     else:
         show_imgs(response)
-
-## Delete After ##
-# data_dir = 'inputs'
-# filename = 'wallpaper.jpg'
-# img = read_img(os.path.join(data_dir, filename))
-# # gray_img = rgb2gray(img)
-# # grad_img_h, grad_img_v, grad_img_d1, grad_img_d2 = gray2grad(gray_img)
-# grad_img_d2 = pad_zeros(img, 5, 5, 5, 5)
-# imgplot = plt.imshow(grad_img_d2, cmap='gray', vmin=0, vmax=255)
-# plt.show()
