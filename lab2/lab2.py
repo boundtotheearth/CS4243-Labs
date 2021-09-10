@@ -7,7 +7,7 @@ from matplotlib import cm
 
 ##################### TASK 1 ###################
 
-# 1.1 IMPLEMENT
+# 1.1 IMPLEMENT 
 def make_gaussian_kernel(ksize, sigma):
     '''
     Implement the simplified Gaussian kernel below:
@@ -23,6 +23,14 @@ def make_gaussian_kernel(ksize, sigma):
     '''
     
     # YOUR CODE HERE
+    shape_tuple = (ksize, ksize,)
+    kernel = np.empty(shape_tuple, float)
+    size_halved = ksize // 2
+    for i in range(ksize):
+        for j in range(ksize):
+            value_i = i - size_halved
+            value_j = j - size_halved
+            kernel[i][j] = np.exp((value_i ** 2 + value_j ** 2)/(-2 * (sigma ** 2)))
 
     # END
 
@@ -131,7 +139,28 @@ def estimate_gradients(original_img, display=True):
     d_mag = None
     d_angle = None
     
-    # YOUR CODE HERE 
+    # YOUR CODE HERE
+    original_img = np.copy(original_img)
+    original_img = original_img / 255
+
+    Kx = np.array([[ 1,  2,  1],
+          [ 0,  0,  0],
+          [-1, -2, -1]])
+    
+    Ky = np.array([[ 1,  0, -1],
+          [ 2,  0, -2],
+          [ 1,  0, -1]])
+
+    dx = cs4243_filter(original_img, Kx)
+    dy = cs4243_filter(original_img, Ky)
+
+    # shape_tuple = (len(filtered_image_x), len(filtered_image_x[0]),)
+
+    d_mag = np.sqrt(dx ** 2 + dy ** 2)
+
+    d_angle = np.arctan2(dy, dx)
+    print(d_mag)
+    print(d_angle)
     '''
     HINT:
     In the lecture, 
@@ -145,14 +174,6 @@ def estimate_gradients(original_img, display=True):
          -1 -2 -1
          
     Here:
-    
-    Kx = [[ 1,  2,  1],
-          [ 0,  0,  0],
-          [-1, -2, -1]]
-    
-    Ky = [[ 1,  0, -1],
-          [ 2,  0, -2],
-          [ 1,  0, -1]]
  
     This is because x direction is the downward line.
     '''
@@ -367,6 +388,7 @@ def find_peak_params(hspace, params_list,  window_size=1, threshold=0.5):
         res.append(params_list[i][peaks_indices.T[i]])
     return res
 
+## Task 2 End
 
 ##################### TASK 3 ######################
 
