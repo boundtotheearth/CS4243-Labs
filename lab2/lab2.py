@@ -236,6 +236,42 @@ def non_maximum_suppression(d_mag, d_angle, display=True):
     d_angle_180 = d_angle * 180/np.pi
  
     # YOUR CODE HERE
+    for i in range(len(d_angle_180)):
+        for j in range(len(d_angle_180[0])):
+            angle = d_angle_180[i][j]
+            if -157.5 <= angle < -112.5:
+                x1, y1 = i-1, j-1
+                x2, y2 = i+1, j+1
+            elif -112.5 <= angle < -67.5:
+                x1, y1 = i, j-1
+                x2, y2 = i, j+1
+            elif -67.5 <= angle < -22.5:
+                x1, y1 = i+1, j-1
+                x2, y2 = i-1, j+1
+            elif -22.5 <= angle < 22.5:
+                x1, y1 = i+1, j
+                x2, y2 = i-1, j
+            elif 22.5 <= angle < 67.5:
+                x1, y1 = i+1, j+1
+                x2, y2 = i-1, j-1
+            elif 67.5 <= angle < 112.5:
+                x1, y1 = i, j+1
+                x2, y2 = i, j-1
+            elif 112.5 <= angle < 157.5:
+                x1, y1 = i-1, j+1
+                x2, y2 = i+1, j-1
+            else:
+                x1, y1 = i-1, j
+                x2, y2 = i+1, j
+            if x1 < 0 or x2 < 0 or y1 < 0 or y2 < 0:
+                out[i][j] = 0
+            elif x1 >= len(d_angle_180) or x2 >= len(d_angle_180) or y1 >= len(d_angle_180[0]) or y2 >= len(d_angle_180[0]):
+                out[i][j] = 0
+            elif d_mag[x1][y1] <= d_mag[i][j] and d_mag[x2][y2] <= d_mag[i][j]:
+                # Local Maximum Detected
+                out[i][j] = d_mag[i][j]
+            else:
+                out[i][j] = 0
 
     # END
     if display:
@@ -258,6 +294,104 @@ def non_maximum_suppression_interpol(d_mag, d_angle, display=True):
     d_angle_180 = d_angle * 180/np.pi
     
     # YOUR CODE HERE
+    for i in range(1, len(d_angle_180) - 1):
+        for j in range(1, len(d_angle_180[0]) - 1):
+            ratio = np.tan(d_angle_180[i][j] * np.pi / 180)
+            angle = d_angle_180[i][j]
+            if -180 <= angle < -135:
+                mag_a = d_mag[i-1][j]
+                mag_b = d_mag[i-1][j-1]
+                mag_opp_a = d_mag[i+1][j]
+                mag_opp_b = d_mag[i+1][j+1]
+                if angle < -157.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif -135 <= angle < -90:
+                mag_a = d_mag[i-1][j-1]
+                mag_b = d_mag[i][j-1]
+                mag_opp_a = d_mag[i+1][j+1]
+                mag_opp_b = d_mag[i][j+1]
+                if angle < -112.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif -90 <= angle < -45:
+                mag_a = d_mag[i][j-1]
+                mag_b = d_mag[i+1][j-1]
+                mag_opp_a = d_mag[i][j+1]
+                mag_opp_b = d_mag[i-1][j+1]
+                if angle < -67.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif -45 <= angle < 0:
+                mag_a = d_mag[i+1][j-1]
+                mag_b = d_mag[i+1][j]
+                mag_opp_a = d_mag[i-1][j+1]
+                mag_opp_b = d_mag[i-1][j]
+                if angle < -22.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif 0 <= angle < 45:
+                mag_a = d_mag[i+1][j]
+                mag_b = d_mag[i+1][j+1]
+                mag_opp_a = d_mag[i-1][j]
+                mag_opp_b = d_mag[i-1][j-1]
+                if angle < 22.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif 45 <= angle < 90:
+                mag_a = d_mag[i+1][j+1]
+                mag_b = d_mag[i][j+1]
+                mag_opp_a = d_mag[i-1][j-1]
+                mag_opp_b = d_mag[i][j-1]
+                if angle < 67.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif 90 <= angle < 135:
+                mag_a = d_mag[i][j+1]
+                mag_b = d_mag[i-1][j+1]
+                mag_opp_a = d_mag[i][j-1]
+                mag_opp_b = d_mag[i+1][j-1]
+                if angle < 112.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            elif 135 <= angle <= 180:
+                mag_a = d_mag[i-1][j+1]
+                mag_b = d_mag[i-1][j]
+                mag_opp_a = d_mag[i+1][j-1]
+                mag_opp_b = d_mag[i+1][j]
+                if angle < 157.5: 
+                    pixel_one = ratio * (mag_a - mag_b) + mag_b
+                    pixel_two = ratio * (mag_opp_a - mag_opp_b) + mag_opp_b
+                else:
+                    pixel_one = ratio * (mag_b - mag_a) + mag_a
+                    pixel_two = ratio * (mag_opp_b - mag_opp_a) + mag_opp_a
+            if pixel_one <= d_mag[i][j] and pixel_two <= d_mag[i][j]:
+                out[i][j] = d_mag[i][j]
+            else:
+                out[i][j] = 0
+                    
+                    
 
     # END
     if display:
@@ -286,7 +420,20 @@ def double_thresholding(inp, perc_weak=0.1, perc_strong=0.3, display=True):
     weak_edges = strong_edges = None
     
     # YOUR CODE HERE
-    
+    weak_edges = np.zeros(inp.shape, inp.dtype)
+    strong_edges = np.zeros(inp.shape, inp.dtype)
+    max_val = np.amax(inp)
+    min_val = np.amin(inp)
+    delta = max_val - min_val
+    high_threshold = min_val + perc_strong * delta
+    low_threshold = min_val + perc_weak * delta
+    for i in range(len(inp)):
+        for j in range(len(inp[0])):
+            pixel_value = inp[i][j]
+            if pixel_value > low_threshold:
+                weak_edges[i][j] = 1
+            if pixel_value > high_threshold:
+                strong_edges[i][j] = 1
     # END
     
     if display:
@@ -312,7 +459,8 @@ def edge_linking(weak, strong, n=200, display=True):
     8 2D arrays from the strong edge image by offseting and sum them together; entries larger than 0 mean that at least one surrounding
     pixel is a strong edge pixel (otherwise the sum would be 0).
     
-    You may also want to limit the number of iterations (test with 10-20 iterations first to check your implementation speed), and use a stopping condition (stop if no more pixel is added to the strong edge image).
+    You may also want to limit the number of iterations (test with 10-20 iterations first to check your implementation speed), 
+    and use a stopping condition (stop if no more pixel is added to the strong edge image).
     Also, when a weak edge pixel is added to the strong set, remember to remove it.
 
 
@@ -326,11 +474,29 @@ def edge_linking(weak, strong, n=200, display=True):
     out = None
     
     # YOUR CODE HERE
+    out = np.copy(strong)
+    array_height = len(strong)
+    array_width = len(strong[0])
+    surrounding_index_x = [0, 1, 2, 2, 2, 1, 0, 0]
+    surrounding_index_y = [0, 0, 0, 1, 2, 2, 2, 1]
+    new_dimension = (strong.shape[0] - 2, strong.shape[1] - 2)
+    array_sum = np.zeros(new_dimension, strong.dtype)
+    for i in range(8):
+        index_x = surrounding_index_x[i]
+        index_y = surrounding_index_y[i]
+        array_indexed = strong[index_x:array_height-2+index_x, index_y:array_width-2+index_y]
+        array_sum += array_indexed
     
-    # END
+    for i in range(1, len(strong) - 1):
+        for j in range(1, len(strong[0]) - 1):
+            if weak[i][j] == 1 and out[i][j] == 0:
+                if array_sum[i-1][j-1] >= 1:
+                    out[i][j] = 1
+
+    # END   
     if display:
         _ = plt.figure(figsize=(10,10))
-        plt.imshow(s)
+        plt.imshow(out)
         plt.title("Edge image")
     return out
 
