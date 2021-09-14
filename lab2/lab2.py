@@ -3,6 +3,7 @@ import numpy as np
 import cv2 
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from numpy.lib.function_base import append
 
 
 ##################### TASK 1 ###################
@@ -589,6 +590,31 @@ def hough_vote_circles(img, radius = None):
     
     # YOUR CODE HERE
 
+    # Get edge points
+    edge_points = []
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            if(img[row, col] > 0):
+                edge_points.append((row, col))
+    
+
+    # Initialize Accumulator
+    R_range = R_max - R_min
+    accumulator = np.zeroes((R_range, h, w))
+
+    # Cast Votes
+    for radius_index in range(accumulator[0]):
+        circle_template = circle_perimeter(0, 0, radius_index + R_min)
+        for edge_point in edge_points:
+            perimeter = np.add(circle_template + edge_point)
+            for perimeter_point in perimeter:
+                if(perimeter_point[0] < 0 or perimeter_point[0] >= h or perimeter_point[1] < 0 or perimeter_point[1] >= w):
+                    accumulator[0, perimeter_point[0], perimeter_point[1]] += 1
+
+    A = accumulator
+    R = accumulator
+    X = accumulator
+    Y = accumulator
 
     # END
    
