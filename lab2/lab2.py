@@ -160,8 +160,6 @@ def estimate_gradients(original_img, display=True):
     d_mag = np.sqrt(dx ** 2 + dy ** 2)
 
     d_angle = np.arctan2(dy, dx)
-    print(d_mag)
-    print(d_angle)
     '''
     HINT:
     In the lecture, 
@@ -605,7 +603,7 @@ def hough_vote_circles(img, radius = None):
     for radius_index in range(accumulator.shape[0]):
         for edge_point in edge_points:
             rr, cc = circle_perimeter(edge_point[0], edge_point[1], radius_index + R_min, shape=(h, w))
-            accumulator[radius_index, rr, cc] += 1
+            accumulator[radius_index, rr, cc] += (1 / (radius_index + R_min))
             # for perimeter_point in perimeter:
             #     if(perimeter_point[0] < 0 or perimeter_point[0] >= h or perimeter_point[1] < 0 or perimeter_point[1] >= w):
             #         accumulator[0, perimeter_point[0], perimeter_point[1]] += 1
@@ -649,6 +647,43 @@ def hough_vote_circles_grad(img, d_angle, radius = None):
         [R_min,R_max] = radius
     
     # YOUR CODE HERE
+    # Get edge points
+    bin_size = 1
+    h = h // bin_size
+    w = w // bin_size
+    edge_points = []
+    for row in range(img.shape[0]):
+        for col in range(img.shape[1]):
+            if(img[row, col] > 0):
+                edge_points.append((row, col))
+    
+
+    # Initialize Accumulator
+    R_range = (R_max - R_min) // bin_size
+    accumulator = np.zeros((R_range, h, w))
+
+    # Cast Votes
+    for radius_index in range(accumulator.shape[0]):
+        radius = (radius_index * bin_size) + R_min
+        for edge_point in edge_points:
+            x, y = edge_point
+            gradient_angle = d_angle[x, y]
+            dy = radius * np.sin(gradient_angle)
+            dx = radius * np.cos(gradient_angle)
+            x1 = round((x + dx) / bin_size)
+            y1 = round((y + dy) / bin_size)
+            if(x1 >= 0 and x1 < h and y1 >= 0 and y1 < w):
+                accumulator[radius_index, x1, y1] += 1/radius
+
+            x2 = round((x - dx) / bin_size)
+            y2 = round((y - dy) / bin_size)
+            if(x2 >= 0 and x2 < h and y2 >= 0 and y2 < w):
+                accumulator[radius_index, x2, y2] += 1/radius
+
+    A = accumulator
+    R = np.array([(r * bin_size) + R_min for r in range(0, R_range)])
+    X = np.array([x * bin_size for x in range(0, h)])
+    Y = np.array([y * bin_size for y in range(0, w)])
 
     # END
     return A, R, X, Y
