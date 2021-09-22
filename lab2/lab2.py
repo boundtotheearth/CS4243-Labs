@@ -154,13 +154,9 @@ def estimate_gradients(original_img, display=True):
     dx = cs4243_filter(original_img, Kx)
     dy = cs4243_filter(original_img, Ky)
 
-    # shape_tuple = (len(filtered_image_x), len(filtered_image_x[0]),)
-
     d_mag = np.sqrt(dx ** 2 + dy ** 2)
 
     d_angle = np.arctan2(dy, dx)
-    print(d_mag)
-    print(d_angle)
     '''
     HINT:
     In the lecture, 
@@ -516,14 +512,31 @@ def hough_vote_lines(img):
     :return thetas: theta values array
     '''
     # YOUR CODE HERE
+    theta_value_number = 181
+    thetas = np.linspace(0, 180, theta_value_number)
+    thetas = np.deg2rad(thetas)
 
+    distance = np.ceil(np.sqrt((len(img) ** 2) + (len(img[0]) ** 2)))
+    distances_value_number = int(2 * distance + 1)
+    distances = np.linspace(-1 * distance, distance, distances_value_number)
+
+    A = np.zeros((distances_value_number, theta_value_number,))
+    for i in range(len(img)):
+        for j in range(len(img[0])):
+            if img[i][j] == 0:
+                continue
+            for k in range(len(thetas)):
+                theta = thetas[k]
+                ro = j * np.sin(theta) + i * np.cos(theta)
+                index = np.argmin(np.abs(distances - ro))
+                A[index][k] += 1
     # END
-            
+
     return A, distances, thetas
 
 # 4 GIVEN
 from skimage.feature import peak_local_max
-def find_peak_params(hspace, params_list,  window_size=1, threshold=0.5):
+def find_peak_params(hspace, params_list,  window_size=20, threshold=0.2):
     '''
     Given a Hough space and a list of parameters range, compute the local peaks
     aka bins whose count is larger max_bin * threshold. The local peaks are computed
