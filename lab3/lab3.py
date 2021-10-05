@@ -92,7 +92,7 @@ def naive_descriptor(patch):
 
     h, w = patch.shape
     mean, std = patch.mean(), patch.std()
-    feature = (patch - mean) / std
+    feature = (patch - mean) / (std + 0.0001)
 
     feature = feature.flatten()
 
