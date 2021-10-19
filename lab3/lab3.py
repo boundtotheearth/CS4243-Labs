@@ -57,6 +57,16 @@ def harris_corners(img, window_size=3, k=0.04):
     response = np.zeros((H, W))
 
     # YOUR CODE HERE
+    weights = np.ones((window_size, window_size))
+    horizontal = filters.sobel_h(img)
+    vertical = filters.sobel_v(img)
+    A = convolve(np.square(horizontal), weights, mode='constant', cval=0.0)
+    B = convolve(np.multiply(horizontal, vertical), weights, mode='constant', cval=0.0)
+    C = convolve(np.square(vertical), weights, mode='constant', cval=0.0)
+    det = np.subtract(np.multiply(A, C), np.square(B))
+    tr = np.add(A, C)
+    response = np.subtract(det, np.multiply(k, np.square(tr)))
+
 
     # END        
     return response
@@ -79,6 +89,12 @@ def naive_descriptor(patch):
     '''
     feature = []
     ### YOUR CODE HERE
+
+    h, w = patch.shape
+    mean, std = patch.mean(), patch.std()
+    feature = (patch - mean) / (std + 0.0001)
+
+    feature = feature.flatten()
 
     ### END YOUR CODE
 
@@ -155,6 +171,23 @@ def simple_sift(patch):
     histogram = np.zeros((4,4,8))
     
     # YOUR CODE HERE
+    horizontal = filters.sobel_h(patch)
+    vertical = filters.sobel_v(patch)
+    orientation = np.arctan2(vertical, horizontal)
+    magnitude = np.sqrt(np.square(vertical) + np.square(horizontal))
+    for row_i in range(histogram.shape[0]):
+        for col_i in range(histogram.shape[1]):
+            for r in range(4):
+                for c in range(4):
+                    pixel_r = (row_i * 4) + r
+                    pixel_c = (col_i * 4) + r
+                    pixel_bin = round(orientation[pixel_r, pixel_c] * (180 / math.pi) / 45)
+                    weight = magnitude[pixel_r, pixel_c] * weights[pixel_r, pixel_c]
+                    histogram[row_i, col_i, pixel_bin] += weight
+
+    feature = histogram.flatten()
+    feature_magnitude = np.sqrt(np.sum(np.square(feature)))
+    feature = feature / feature_magnitude
   
     # END
     return feature
@@ -174,6 +207,12 @@ def top_k_matches(desc1, desc2, k=2):
     match_pairs = []
     
     # YOUR CODE HERE
+
+    distances = cdist(desc1, desc2, 'euclidean')
+    for i, distance_list in enumerate(distances):
+        k_nearest_index = np.argsort(distance_list)[:k+1]
+        k_nearest = [(index, distance_list[index]) for index in k_nearest_index]
+        match_pairs.append((i, k_nearest))
   
     # END
     return match_pairs
@@ -202,6 +241,14 @@ def ratio_test_match(desc1, desc2, match_threshold):
     match_pairs = []
     top_2_matches = top_k_matches(desc1, desc2)
     # YOUR CODE HERE
+
+    for entry in top_2_matches:
+        desc1_index = entry[0]
+        desc2_index = entry[1][0][0]
+        distance_2a = entry[1][0][1]
+        distance_2b = entry[1][1][1]
+        if (distance_2a / distance_2b) < match_threshold:
+            match_pairs.append([desc1_index, desc2_index])
    
     # END
     # Modify this line as you wish
