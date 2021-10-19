@@ -544,9 +544,25 @@ def match_with_self(descs, kps, threshold=0.8):
     matches = []
     
     # YOUR CODE HERE
-   
+    top_3_matches = top_k_matches(descs, descs, k=3)
+    filtered_matches = []
+    for keypoint, match_list in top_3_matches:
+        new_match_list = match_list
+        if keypoint == match_list[0][0]:
+            new_match_list = match_list[1:]
+        new_match_list = new_match_list[:3]
+        filtered_matches.append((keypoint, new_match_list))
+    
+    for entry in filtered_matches:
+        desc1_index = entry[0]
+        desc2_index = entry[1][0][0]
+        distance_2a = entry[1][0][1]
+        distance_2b = entry[1][1][1]
+        if (distance_2a / distance_2b) < threshold:
+            matches.append([desc1_index, desc2_index])
+
     # END
-    return matches
+    return np.array(matches)
 
 # 4.2 IMPLEMENT
 def find_rotation_centers(matches, kps, angles, sizes, im_shape):
@@ -565,6 +581,40 @@ def find_rotation_centers(matches, kps, angles, sizes, im_shape):
     W = []
     
     # YOUR CODE HERE
+    for match in matches:
+        point_i = kps[match[0]]
+        angle_i = (angles[match[0]] - ((angles[match[0]] // 360) * 360)) * (math.pi / 180) # Wrap to [0, 2pi)
+        size_i = sizes[match[0]]
+
+        point_j = kps[match[1]]
+        angle_j = (angles[match[1]] - ((angles[match[1]] // 360) * 360)) * (math.pi / 180) # Wrap to [0, 2pi)
+        size_j = sizes[match[1]]
+
+        if(abs(angle_i - angle_j) <= (math.pi / 180)):
+            # Parallel Keypoints
+            continue
+            
+        dx = point_i[1] - point_j[1]
+        dy = point_i[0] - point_j[0]
+        length = math.sqrt((dx * dx) + (dy * dy))
+        gamma = math.atan2(dy, dx)
+
+        beta = (angle_i - angle_j + math.pi) / 2
+        tb = math.tan(beta)
+        radius = (length * math.sqrt(1 + (tb * tb))) / 2
+
+        x_c = round(point_i[1] + (radius * math.cos(beta + gamma)))
+        y_c = round(point_i[0] + (radius * math.sin(beta + gamma)))
+
+        if(x_c < 0 or x_c >= im_shape[1] or y_c < 0 or y_c >= im_shape[0]):
+            continue
+
+        q = (-abs(size_i - size_j)) / (size_i + size_j)
+        weight = math.exp(q) * math.exp(q)
+
+        X.append(x_c)
+        Y.append(y_c)
+        W.append(weight)
 
     # END
     
@@ -582,6 +632,25 @@ def hough_vote_rotation(matches, kps, angles, sizes, im_shape, window=1, thresho
     Y,X,W = find_rotation_centers(matches, kps, angles, sizes, im_shape)
     
     # YOUR CODE HERE
+
+    accumulator = np.zeros((im_shape[0] // window, im_shape[1] // window))
+    for i in range(len(Y)):
+        x = X[i] // window
+        y = Y[i] // window
+        w = W[i]
+        accumulator[y, x] += w
+
+    accumulator = (accumulator > threshold) * accumulator # Threshold
+
+    idx = np.argpartition(accumulator.ravel(),accumulator.size-num_centers)[-num_centers:]
+    max_indices = np.column_stack(np.unravel_index(idx, accumulator.shape))
+
+    y_values = []
+    x_values = []
+
+    for index in max_indices:
+        y_values.append(index[0] * window)
+        x_values.append(index[1] * window)
 
     # END
     
