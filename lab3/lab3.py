@@ -321,33 +321,38 @@ def compute_homography(src, dst):
     h_matrix = np.eye(3, dtype=np.float64)
   
     # YOUR CODE HERE
-    # Normalize x
+
     src = np.copy(src)
     dst = np.copy(dst)
+
+    src = np.append(src, np.ones((src.shape[0], 1)), axis=1)
+    dst = np.append(dst, np.ones((dst.shape[0], 1)), axis=1)
+
     mx_src = np.mean(src[:, 0])
-    sx_src = np.std(src[:, 0]) / np.sqrt(2)
     my_src = np.mean(src[:, 1])
-    sy_src = np.std(src[:, 1]) / np.sqrt(2)
+    sd_src = np.std(src) / np.sqrt(2)
 
     mx_dst = np.mean(dst[:, 0])
-    sx_dst = np.std(dst[:, 0]) / np.sqrt(2)
     my_dst = np.mean(dst[:, 1])
-    sy_dst = np.std(dst[:, 1]) / np.sqrt(2)
+    sd_dst = np.std(dst) / np.sqrt(2)
 
-    T_src = np.array([[1/sx_src, 0, -mx_src/sx_src], [0, 1/sy_src, -my_src/sy_src], [0, 0, 1]])
-    T_dst = np.array([[1/sx_dst, 0, -mx_dst/sx_dst], [0, 1/sy_dst, -my_dst/sy_dst], [0, 0, 1]])
+    T_src = np.array([[1/sd_src, 0, -mx_src/sd_src], [0, 1/sd_src, -my_src/sd_src], [0, 0, 1]])
+    T_dst = np.array([[1/sd_dst, 0, -mx_dst/sd_dst], [0, 1/sd_dst, -my_dst/sd_dst], [0, 0, 1]])
+
+    q_src = np.matmul(T_src, src.T).T
+    q_dst = np.matmul(T_dst, dst.T).T
 
     A = []
 
-    for i in range(len(src)):
-        x = src[i][0]
-        y = src[i][1]
-        x_prime = dst[i][0]
-        y_prime = dst[i][1]
-        A.append([-x, -y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime])
-        A.append([0, 0, 0, -x, -y, -1, x * y_prime, y * y_prime, y_prime])
-
-    u, s, vh = np.linalg.svd(np.array(A))
+    for i in range(len(q_src)):
+        x = q_src[i][0]
+        y = q_src[i][1]
+        x_prime = q_dst[i][0]
+        y_prime = q_dst[i][1]
+        A.append([-1 * x, -1 * y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime]) 
+        A.append([0, 0, 0, -1 *  x, -1 * y, -1, x * y_prime, y * y_prime, y_prime])
+    
+    u, s, vh = np.linalg.svd(A)
 
     minimum_s = s[0]
     minimum_vect = vh[0]
@@ -359,12 +364,7 @@ def compute_homography(src, dst):
 
     K = np.array([minimum_vect[0:3], minimum_vect[3:6], minimum_vect[6:9]])
 
-
     h_matrix = np.array(np.matmul(np.matmul(np.linalg.inv(T_dst), K), T_src))
-
-    # Normalize x'
-    # Apply DLT
-    # Denormalization
 
     # END 
 
