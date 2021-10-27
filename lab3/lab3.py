@@ -5,6 +5,7 @@ from scipy.spatial.distance import cdist
 from scipy.ndimage.filters import convolve
 from scipy.ndimage import gaussian_filter
 import math
+import random
 
 ### REMOVE THIS
 from cv2 import findHomography
@@ -210,7 +211,7 @@ def top_k_matches(desc1, desc2, k=2):
 
     distances = cdist(desc1, desc2, 'euclidean')
     for i, distance_list in enumerate(distances):
-        k_nearest_index = np.argsort(distance_list)[:k+1]
+        k_nearest_index = np.argsort(distance_list)[:k]
         k_nearest = [(index, distance_list[index]) for index in k_nearest_index]
         match_pairs.append((i, k_nearest))
   
@@ -320,10 +321,54 @@ def compute_homography(src, dst):
     h_matrix = np.eye(3, dtype=np.float64)
   
     # YOUR CODE HERE
+    # Normalize x
+    src = np.copy(src)
+    dst = np.copy(dst)
+    mx_src = np.mean(src[:, 0])
+    sx_src = np.std(src[:, 0]) / np.sqrt(2)
+    my_src = np.mean(src[:, 1])
+    sy_src = np.std(src[:, 1]) / np.sqrt(2)
+
+    mx_dst = np.mean(dst[:, 0])
+    sx_dst = np.std(dst[:, 0]) / np.sqrt(2)
+    my_dst = np.mean(dst[:, 1])
+    sy_dst = np.std(dst[:, 1]) / np.sqrt(2)
+
+    T_src = np.array([[1/sx_src, 0, -mx_src/sx_src], [0, 1/sy_src, -my_src/sy_src], [0, 0, 1]])
+    T_dst = np.array([[1/sx_dst, 0, -mx_dst/sx_dst], [0, 1/sy_dst, -my_dst/sy_dst], [0, 0, 1]])
+
+    A = []
+
+    for i in range(len(src)):
+        x = src[i][0]
+        y = src[i][1]
+        x_prime = dst[i][0]
+        y_prime = dst[i][1]
+        A.append([-x, -y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime])
+        A.append([0, 0, 0, -x, -y, -1, x * y_prime, y * y_prime, y_prime])
+
+    u, s, vh = np.linalg.svd(np.array(A))
+
+    minimum_s = s[0]
+    minimum_vect = vh[0]
+    for i in range(1, len(s)):
+      si = s[i]
+      if si < minimum_s:
+        minimum_s = si
+        minimum_vect = vh[i]
+
+    K = np.array([minimum_vect[0:3], minimum_vect[3:6], minimum_vect[6:9]])
+
+
+    h_matrix = np.array(np.matmul(np.matmul(np.linalg.inv(T_dst), K), T_src))
+
+    # Normalize x'
+    # Apply DLT
+    # Denormalization
 
     # END 
 
-    return h_matrix
+    return np.array(h_matrix)
 
 # 2.2 IMPLEMENT
 def ransac_homography(keypoints1, keypoints2, matches, sampling_ratio=0.5, n_iters=500, delta=20):
@@ -355,13 +400,37 @@ def ransac_homography(keypoints1, keypoints2, matches, sampling_ratio=0.5, n_ite
     matched1_unpad = keypoints1[matches[:,0]]
     matched2_unpad = keypoints2[matches[:,1]]
 
-    max_inliers = np.zeros(N)
+    max_inliers = np.zeros(N).astype(int)
     n_inliers = 0
 
     # RANSAC iteration start
     ### YOUR CODE HERE
- 
+    H = np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]])
+    for i in range(n_iters):
+      sampled_indices = random.sample(range(len(matches)), n_samples)
+      src = []
+      dst = []
+      for j in sampled_indices:
+        match = matches[j]
+        keypoint1 = keypoints1[match[0]]
+        src.append(keypoint1)
+        keypoint2 = keypoints2[match[1]]
+        dst.append(keypoint2)
+      h_matrix = compute_homography(src, dst)
+      transformed = transform_homography(src, h_matrix)
+      inlier_count = 0
+      for j in range(len(transformed)):
+        dist = np.linalg.norm(transformed[j] - dst[j])
+        if dist < delta:
+          inlier_count += 1 
+          
+      if inlier_count > n_inliers:
+        n_inliers = inlier_count
+        H = h_matrix
+        max_inliers = np.array(sampled_indices).astype(int)
+          
     ### END YOUR CODE
+    
     return H, matches[max_inliers]
 
 ##################### PART 3 ###################
@@ -470,7 +539,32 @@ def shift_sift_descriptor(desc):
        [ 50.,   4.,   0.,   0.,   0.,   0.,   0.,   0.]]
     '''
     # YOUR CODE HERE
-   
+    desc = np.copy(desc)
+    res = np.zeros(desc.shape)
+    length = len(desc[0])
+    lst = []
+    for i in range(len(desc)):
+      for j in range(0, length, 8):
+        lst.append(desc[i][j:j+8])
+    lst = np.array(lst)
+    res_lst = np.zeros(lst.shape)
+    for i in range(len(res_lst)):
+      for j in range(1, len(res_lst[0])):
+        reverse_index = len(res_lst[0]) - j
+        res_lst[i][j] = lst[i][reverse_index]
+
+    res = []
+    i = 0
+    sub_arr = []
+    for i in range(len(res_lst)):
+      for j in range(len(res_lst[0])):
+        sub_arr.append(res_lst[i][j])
+        if len(sub_arr) == length:
+          i += 1
+          res.append(sub_arr)
+          sub_arr = []
+    
+    res = np.array(res)
     # END
     return res
 
@@ -481,8 +575,20 @@ def create_mirror_descriptors(img):
     Also return the set of virtual mirror descriptors.
     Make sure the virtual descriptors correspond to the original set of descriptors.
     '''
+    kps = []
+    descs = []
+    sizes = []
+    angles = []
+    mir_descs = []
     # YOUR CODE HERE
- 
+    kps, descs, angles, sizes = compute_cv2_descriptor(img)
+    kps = np.array(kps)
+    descs = np.array(descs)
+    sizes = np.array(sizes)
+    angles = np.array(angles)
+    mir_descs = shift_sift_descriptor(np.array(descs))
+    print(descs)
+
     # END
     return kps, descs, sizes, angles, mir_descs
 
@@ -497,7 +603,21 @@ def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
 
     match_result = []
     # YOUR CODE HERE
-   
+    filtered_matches = []
+    for keypoint, match_list in three_matches:
+        new_match_list = match_list
+        if keypoint == match_list[0][0]:
+            new_match_list = match_list[1:]
+        new_match_list = new_match_list[:3]
+        filtered_matches.append((keypoint, new_match_list))
+    
+    for entry in filtered_matches:
+        desc1_index = entry[0]
+        desc2_index = entry[1][0][0]
+        distance_2a = entry[1][0][1]
+        distance_2b = entry[1][1][1]
+        if (distance_2a / distance_2b) < threshold:
+            match_result.append([desc1_index, desc2_index])
     # END
     return match_result
 
