@@ -305,15 +305,12 @@ def compute_homography(src, dst):
     Calculates the perspective transform from at least 4 points of
     corresponding points using the **Normalized** Direct Linear Transformation
     method.
-
     Args:
         src (np.ndarray): Coordinates of points in the first image (N,2)
         dst (np.ndarray): Corresponding coordinates of points in the second
                           image (N,2)
-
     Returns:
         h_matrix (np.ndarray): The required 3x3 transformation matrix H.
-
     Prohibited functions:
         cv2.findHomography(), cv2.getPerspectiveTransform(),
         np.linalg.solve(), np.linalg.lstsq()
@@ -321,33 +318,38 @@ def compute_homography(src, dst):
     h_matrix = np.eye(3, dtype=np.float64)
   
     # YOUR CODE HERE
-    # Normalize x
+
     src = np.copy(src)
     dst = np.copy(dst)
+
+    src = np.append(src, np.ones((src.shape[0], 1)), axis=1)
+    dst = np.append(dst, np.ones((dst.shape[0], 1)), axis=1)
+
     mx_src = np.mean(src[:, 0])
-    sx_src = np.std(src[:, 0]) / np.sqrt(2)
     my_src = np.mean(src[:, 1])
-    sy_src = np.std(src[:, 1]) / np.sqrt(2)
+    sd_src = np.std(src) / np.sqrt(2)
 
     mx_dst = np.mean(dst[:, 0])
-    sx_dst = np.std(dst[:, 0]) / np.sqrt(2)
     my_dst = np.mean(dst[:, 1])
-    sy_dst = np.std(dst[:, 1]) / np.sqrt(2)
+    sd_dst = np.std(dst) / np.sqrt(2)
 
-    T_src = np.array([[1/sx_src, 0, -mx_src/sx_src], [0, 1/sy_src, -my_src/sy_src], [0, 0, 1]])
-    T_dst = np.array([[1/sx_dst, 0, -mx_dst/sx_dst], [0, 1/sy_dst, -my_dst/sy_dst], [0, 0, 1]])
+    T_src = np.array([[1/sd_src, 0, -mx_src/sd_src], [0, 1/sd_src, -my_src/sd_src], [0, 0, 1]])
+    T_dst = np.array([[1/sd_dst, 0, -mx_dst/sd_dst], [0, 1/sd_dst, -my_dst/sd_dst], [0, 0, 1]])
+
+    q_src = np.matmul(T_src, src.T).T
+    q_dst = np.matmul(T_dst, dst.T).T
 
     A = []
 
-    for i in range(len(src)):
-        x = src[i][0]
-        y = src[i][1]
-        x_prime = dst[i][0]
-        y_prime = dst[i][1]
-        A.append([-x, -y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime])
-        A.append([0, 0, 0, -x, -y, -1, x * y_prime, y * y_prime, y_prime])
-
-    u, s, vh = np.linalg.svd(np.array(A))
+    for i in range(len(q_src)):
+        x = q_src[i][0]
+        y = q_src[i][1]
+        x_prime = q_dst[i][0]
+        y_prime = q_dst[i][1]
+        A.append([-1 * x, -1 * y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime]) 
+        A.append([0, 0, 0, -1 *  x, -1 * y, -1, x * y_prime, y * y_prime, y_prime])
+    
+    u, s, vh = np.linalg.svd(A)
 
     minimum_s = s[0]
     minimum_vect = vh[0]
@@ -359,16 +361,11 @@ def compute_homography(src, dst):
 
     K = np.array([minimum_vect[0:3], minimum_vect[3:6], minimum_vect[6:9]])
 
-
     h_matrix = np.array(np.matmul(np.matmul(np.linalg.inv(T_dst), K), T_src))
-
-    # Normalize x'
-    # Apply DLT
-    # Denormalization
 
     # END 
 
-    return h_matrix
+    return np.array(h_matrix)
 
 # 2.2 IMPLEMENT
 def ransac_homography(keypoints1, keypoints2, matches, sampling_ratio=0.5, n_iters=500, delta=20):
@@ -544,12 +541,17 @@ def shift_sift_descriptor(desc):
     for i in range(len(desc)):
       row = desc[i]
       row_reshaped = np.reshape(row, (16, 8))
+      # print("Before flipping: ", row_reshaped) # Uncomment this to check
       res_lst = np.zeros(row_reshaped.shape)
+      # for j in row_reshaped:
+      #   j[1:] = np.flip(j[1:])
+      # res[len(desc) - i - 1] = np.reshape(row_reshaped, (128))
       for i in range(12, -4, -4): # 12 8 4 0
         for j in range(0, 4):
           res_lst[12-i+j][0] = row_reshaped[i+j][0]
           res_lst[12-i+j][1:] = np.flip(row_reshaped[i+j][1:])
-      res[i] = np.reshape(res_lst, (128))
+      # print("After flipping: ", res_lst) # Uncomment this to check
+      res[len(desc) - 1 - i] = np.reshape(res_lst, (128))
     
     res = np.array(res)
     
