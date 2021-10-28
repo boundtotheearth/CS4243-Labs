@@ -200,7 +200,7 @@ def top_k_matches(desc1, desc2, k=2):
     For each descriptor Di in desc1, pick out k nearest descriptors from desc2, as well as the distances themselves.
     Example of an output of this function:
     
-        [(0, [(18, 0.11414082134194799), (28, 0.139670625444803)]),
+        [(0 index of keypoint, [(18, 0.11414082134194799), (28, 0.139670625444803)] list of pairs, first item index of matching keypoint, second item is the distance of two keypoints),
          (1, [(2, 0.14780585099287238), (9, 0.15420019834435536)]),
          (2, [(64, 0.12429203239414029), (267, 0.1395765079352806)]),
          ...<truncated>
@@ -321,38 +321,33 @@ def compute_homography(src, dst):
     h_matrix = np.eye(3, dtype=np.float64)
   
     # YOUR CODE HERE
-
+    # Normalize x
     src = np.copy(src)
     dst = np.copy(dst)
-
-    src = np.append(src, np.ones((src.shape[0], 1)), axis=1)
-    dst = np.append(dst, np.ones((dst.shape[0], 1)), axis=1)
-
     mx_src = np.mean(src[:, 0])
+    sx_src = np.std(src[:, 0]) / np.sqrt(2)
     my_src = np.mean(src[:, 1])
-    sd_src = np.std(src) / np.sqrt(2)
+    sy_src = np.std(src[:, 1]) / np.sqrt(2)
 
     mx_dst = np.mean(dst[:, 0])
+    sx_dst = np.std(dst[:, 0]) / np.sqrt(2)
     my_dst = np.mean(dst[:, 1])
-    sd_dst = np.std(dst) / np.sqrt(2)
+    sy_dst = np.std(dst[:, 1]) / np.sqrt(2)
 
-    T_src = np.array([[1/sd_src, 0, -mx_src/sd_src], [0, 1/sd_src, -my_src/sd_src], [0, 0, 1]])
-    T_dst = np.array([[1/sd_dst, 0, -mx_dst/sd_dst], [0, 1/sd_dst, -my_dst/sd_dst], [0, 0, 1]])
-
-    q_src = np.matmul(T_src, src.T).T
-    q_dst = np.matmul(T_dst, dst.T).T
+    T_src = np.array([[1/sx_src, 0, -mx_src/sx_src], [0, 1/sy_src, -my_src/sy_src], [0, 0, 1]])
+    T_dst = np.array([[1/sx_dst, 0, -mx_dst/sx_dst], [0, 1/sy_dst, -my_dst/sy_dst], [0, 0, 1]])
 
     A = []
 
-    for i in range(len(q_src)):
-        x = q_src[i][0]
-        y = q_src[i][1]
-        x_prime = q_dst[i][0]
-        y_prime = q_dst[i][1]
-        A.append([-1 * x, -1 * y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime]) 
-        A.append([0, 0, 0, -1 *  x, -1 * y, -1, x * y_prime, y * y_prime, y_prime])
-    
-    u, s, vh = np.linalg.svd(A)
+    for i in range(len(src)):
+        x = src[i][0]
+        y = src[i][1]
+        x_prime = dst[i][0]
+        y_prime = dst[i][1]
+        A.append([-x, -y, -1, 0, 0, 0, x * x_prime, y * x_prime, x_prime])
+        A.append([0, 0, 0, -x, -y, -1, x * y_prime, y * y_prime, y_prime])
+
+    u, s, vh = np.linalg.svd(np.array(A))
 
     minimum_s = s[0]
     minimum_vect = vh[0]
@@ -364,11 +359,16 @@ def compute_homography(src, dst):
 
     K = np.array([minimum_vect[0:3], minimum_vect[3:6], minimum_vect[6:9]])
 
+
     h_matrix = np.array(np.matmul(np.matmul(np.linalg.inv(T_dst), K), T_src))
+
+    # Normalize x'
+    # Apply DLT
+    # Denormalization
 
     # END 
 
-    return np.array(h_matrix)
+    return h_matrix
 
 # 2.2 IMPLEMENT
 def ransac_homography(keypoints1, keypoints2, matches, sampling_ratio=0.5, n_iters=500, delta=20):
@@ -541,30 +541,18 @@ def shift_sift_descriptor(desc):
     # YOUR CODE HERE
     desc = np.copy(desc)
     res = np.zeros(desc.shape)
-    length = len(desc[0])
-    lst = []
     for i in range(len(desc)):
-      for j in range(0, length, 8):
-        lst.append(desc[i][j:j+8])
-    lst = np.array(lst)
-    res_lst = np.zeros(lst.shape)
-    for i in range(len(res_lst)):
-      for j in range(1, len(res_lst[0])):
-        reverse_index = len(res_lst[0]) - j
-        res_lst[i][j] = lst[i][reverse_index]
-
-    res = []
-    i = 0
-    sub_arr = []
-    for i in range(len(res_lst)):
-      for j in range(len(res_lst[0])):
-        sub_arr.append(res_lst[i][j])
-        if len(sub_arr) == length:
-          i += 1
-          res.append(sub_arr)
-          sub_arr = []
+      row = desc[i]
+      row_reshaped = np.reshape(row, (16, 8))
+      res_lst = np.zeros(row_reshaped.shape)
+      for i in range(12, -4, -4): # 12 8 4 0
+        for j in range(0, 4):
+          res_lst[12-i+j][0] = row_reshaped[i+j][0]
+          res_lst[12-i+j][1:] = np.flip(row_reshaped[i+j][1:])
+      res[i] = np.reshape(res_lst, (128))
     
     res = np.array(res)
+    
     # END
     return res
 
@@ -586,25 +574,25 @@ def create_mirror_descriptors(img):
     descs = np.array(descs)
     sizes = np.array(sizes)
     angles = np.array(angles)
-    mir_descs = shift_sift_descriptor(np.array(descs))
-    print(descs)
+    mir_descs = shift_sift_descriptor(descs)
 
     # END
     return kps, descs, sizes, angles, mir_descs
 
 # 3.2 IMPLEMENT
-def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
+def match_mirror_descriptors(descs, mirror_descs, threshold = 0.3):
     '''
     First use `top_k_matches` to find the nearest 3 matches for each keypoint. Then eliminate the mirror descriptor that comes 
     from the same keypoint. Perform ratio test on the two matches left. If no descriptor is eliminated, perform the ratio test 
     on the best 2. 
     '''
-    three_matches = top_k_matches(descs, mirror_descs, k=3)
 
     match_result = []
+    
     # YOUR CODE HERE
+    top_3_matches = top_k_matches(descs, mirror_descs, k=3)
     filtered_matches = []
-    for keypoint, match_list in three_matches:
+    for keypoint, match_list in top_3_matches:
         new_match_list = match_list
         if keypoint == match_list[0][0]:
             new_match_list = match_list[1:]
@@ -618,6 +606,8 @@ def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
         distance_2b = entry[1][1][1]
         if (distance_2a / distance_2b) < threshold:
             match_result.append([desc1_index, desc2_index])
+
+    match_result = np.array(match_result)
     # END
     return match_result
 
@@ -631,7 +621,17 @@ def find_symmetry_lines(matches, kps):
     rhos = []
     thetas = []
     # YOUR CODE HERE
-
+    for i in matches:
+      first_keypoint = i[0]
+      second_keypoint = i[1]
+      first_coordinate = kps[first_keypoint]
+      second_coordinate = kps[second_keypoint]
+      m = midpoint(first_coordinate, second_coordinate)
+      theta = angle_with_x_axis(first_coordinate, second_coordinate)
+      rho = m[0] * np.cos(np.cos(theta)) + m[1] * np.sin(np.sin(theta))
+      rhos.append(rho)
+      thetas.append(theta)
+    
     # END
     
     return rhos, thetas
@@ -647,7 +647,34 @@ def hough_vote_mirror(matches, kps, im_shape, window=1, threshold=0.5, num_lines
     rhos, thetas = find_symmetry_lines(matches, kps)
     
     # YOUR CODE HERE
-  
+    theta_value_number = 361
+    thetas_bucket = np.linspace(0, 360, theta_value_number)
+    thetas_bucket = np.deg2rad(thetas_bucket)
+
+    distance = np.ceil(np.sqrt(im_shape[0] ** 2 + im_shape[1] ** 2))
+    distances_value_number = int(2 * distance + 1)
+    distances_bucket = np.linspace(-1 * distance, distance, distances_value_number)
+
+    accumulator = np.zeros((distances_value_number, theta_value_number))
+    for i in range(len(rhos)):
+        rho = rhos[i]
+        theta = thetas[i]
+        rho_index = np.argmin(distances_bucket - rho)
+        theta_index = np.argmin(thetas_bucket - theta)
+        accumulator[rho_index, theta_index] += 1
+
+    accumulator = (accumulator > threshold) * accumulator # Threshold
+
+    idx = np.argpartition(accumulator.ravel(),accumulator.size-num_lines)[-num_lines:]
+    max_indices = np.column_stack(np.unravel_index(idx, accumulator.shape))
+
+    rho_values = []
+    theta_values = []
+
+    for index in max_indices:
+        rho_values.append(index[0] * window)
+        theta_values.append(index[1] * window)
+
     # END
     
     return rho_values, theta_values
