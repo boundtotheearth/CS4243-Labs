@@ -580,7 +580,7 @@ def create_mirror_descriptors(img):
     return kps, descs, sizes, angles, mir_descs
 
 # 3.2 IMPLEMENT
-def match_mirror_descriptors(descs, mirror_descs, threshold = 0.3):
+def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
     '''
     First use `top_k_matches` to find the nearest 3 matches for each keypoint. Then eliminate the mirror descriptor that comes 
     from the same keypoint. Perform ratio test on the two matches left. If no descriptor is eliminated, perform the ratio test 
