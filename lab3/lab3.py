@@ -6,6 +6,7 @@ from scipy.ndimage.filters import convolve
 from scipy.ndimage import gaussian_filter
 import math
 import random
+import sys
 
 ### REMOVE THIS
 from cv2 import findHomography
@@ -541,17 +542,12 @@ def shift_sift_descriptor(desc):
     for i in range(len(desc)):
       row = desc[i]
       row_reshaped = np.reshape(row, (16, 8))
-      # print("Before flipping: ", row_reshaped) # Uncomment this to check
       res_lst = np.zeros(row_reshaped.shape)
-      # for j in row_reshaped:
-      #   j[1:] = np.flip(j[1:])
-      # res[len(desc) - i - 1] = np.reshape(row_reshaped, (128))
-      for i in range(12, -4, -4): # 12 8 4 0
-        for j in range(0, 4):
-          res_lst[12-i+j][0] = row_reshaped[i+j][0]
-          res_lst[12-i+j][1:] = np.flip(row_reshaped[i+j][1:])
-      # print("After flipping: ", res_lst) # Uncomment this to check
-      res[len(desc) - 1 - i] = np.reshape(res_lst, (128))
+      for j in range(12, -4, -4): # 12 8 4 0
+        for k in range(0, 4):
+          res_lst[12-j+k][0] = row_reshaped[j+k][0]
+          res_lst[12-j+k][1:] = np.flip(row_reshaped[j+k][1:])
+      res[i] = np.reshape(res_lst, (128))
     
     res = np.array(res)
     
@@ -582,7 +578,7 @@ def create_mirror_descriptors(img):
     return kps, descs, sizes, angles, mir_descs
 
 # 3.2 IMPLEMENT
-def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
+def match_mirror_descriptors(descs, mirror_descs, threshold = 0.5):
     '''
     First use `top_k_matches` to find the nearest 3 matches for each keypoint. Then eliminate the mirror descriptor that comes 
     from the same keypoint. Perform ratio test on the two matches left. If no descriptor is eliminated, perform the ratio test 
@@ -590,6 +586,8 @@ def match_mirror_descriptors(descs, mirror_descs, threshold = 0.7):
     '''
 
     match_result = []
+    descs = np.copy(descs)
+    mirror_descs = np.copy(mirror_descs)
     
     # YOUR CODE HERE
     top_3_matches = top_k_matches(descs, mirror_descs, k=3)
@@ -623,6 +621,8 @@ def find_symmetry_lines(matches, kps):
     rhos = []
     thetas = []
     # YOUR CODE HERE
+    matches = np.copy(matches)
+    kps = np.copy(kps)
     for i in matches:
       first_keypoint = i[0]
       second_keypoint = i[1]
@@ -630,10 +630,10 @@ def find_symmetry_lines(matches, kps):
       second_coordinate = kps[second_keypoint]
       m = midpoint(first_coordinate, second_coordinate)
       theta = angle_with_x_axis(first_coordinate, second_coordinate)
-      rho = m[0] * np.cos(np.cos(theta)) + m[1] * np.sin(np.sin(theta))
+      rho = m[1] * np.cos(theta) + m[0] * np.sin(theta)
       rhos.append(rho)
       thetas.append(theta)
-    
+
     # END
     
     return rhos, thetas
@@ -649,6 +649,8 @@ def hough_vote_mirror(matches, kps, im_shape, window=1, threshold=0.5, num_lines
     rhos, thetas = find_symmetry_lines(matches, kps)
     
     # YOUR CODE HERE
+    matches = np.copy(matches)
+    kps = np.copy(kps)
     theta_value_number = 361
     thetas_bucket = np.linspace(0, 360, theta_value_number)
     thetas_bucket = np.deg2rad(thetas_bucket)
@@ -661,21 +663,18 @@ def hough_vote_mirror(matches, kps, im_shape, window=1, threshold=0.5, num_lines
     for i in range(len(rhos)):
         rho = rhos[i]
         theta = thetas[i]
-        rho_index = np.argmin(distances_bucket - rho)
-        theta_index = np.argmin(thetas_bucket - theta)
+        rho_index = np.argmin(np.abs(distances_bucket - rho))
+        theta_index = np.argmin(np.abs(thetas_bucket - theta))
         accumulator[rho_index, theta_index] += 1
+        
+    params_list = [distances_bucket, thetas_bucket]
 
-    accumulator = (accumulator > threshold) * accumulator # Threshold
+    result = find_peak_params(accumulator, params_list, window, threshold)
 
-    idx = np.argpartition(accumulator.ravel(),accumulator.size-num_lines)[-num_lines:]
-    max_indices = np.column_stack(np.unravel_index(idx, accumulator.shape))
-
-    rho_values = []
-    theta_values = []
-
-    for index in max_indices:
-        rho_values.append(index[0] * window)
-        theta_values.append(index[1] * window)
+    rho_values = result[1]
+    theta_values = result[2]
+    rho_values = rho_values[0:num_lines]
+    theta_values = theta_values[0:num_lines]
 
     # END
     
