@@ -790,32 +790,18 @@ def hough_vote_rotation(matches, kps, angles, sizes, im_shape, window=1, thresho
 
     accumulator = (accumulator > threshold) * accumulator # Threshold
 
-    # x_bucket = np.linspace(0, (im_shape[1] // window) - 1, (im_shape[1] // window))
-    # y_bucket = np.linspace(0, (im_shape[0] // window) - 1, (im_shape[0] // window))
+    x_bucket = np.linspace(0, (im_shape[1] // window) - 1, (im_shape[1] // window))
+    y_bucket = np.linspace(0, (im_shape[0] // window) - 1, (im_shape[0] // window))
 
-    # params_list = [y_bucket, x_bucket]
-    # result = find_peak_params(accumulator, params_list, window, threshold)
+    params_list = [y_bucket, x_bucket]
+    result = find_peak_params(accumulator, params_list, window, threshold)
 
-    # x_values = result[1].astype(np.uint8)
-    # y_values = result[2].astype(np.uint8)
-    # x_values = x_values[0:num_centers]
-    # y_values = y_values[0:num_centers]
+    x_values = result[2].astype(int)
+    y_values = result[1].astype(int)
 
-    # print(y_values)
-    # print(x_values)
+    x_values = x_values[0:num_centers] * window
+    y_values = y_values[0:num_centers] * window
 
-    idx = np.argpartition(accumulator.ravel(),accumulator.size-num_centers)[-num_centers:]
-    max_indices = np.column_stack(np.unravel_index(idx, accumulator.shape))
-
-    y_values = []
-    x_values = []
-
-    for index in max_indices:
-        y_values.append(index[0] * window)
-        x_values.append(index[1] * window)
-
-    # print(y_values)
-    # print(x_values)
     # END
     
     return y_values, x_values
