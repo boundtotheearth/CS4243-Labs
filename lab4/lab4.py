@@ -49,8 +49,7 @@ def detect_points(img, min_distance, rou, pt_num, patch_size, tau_rou, gamma_rou
                 x, y = i.ravel()
                 detected_points.append([y + patch_row, x + patch_col])
 
-    return np.array(detected_points).astype(int)
-
+    pts = np.array(detected_points).astype(int)
 
     # END
 
@@ -93,10 +92,12 @@ def extract_point_features(img, pts, window_patch):
         # normalized_patch = (patch - patch.mean()) / patch.std()
         # patch_features = normalized_patch.ravel()
         patch_features = patch.ravel()
-        features.append(patch_features)
+        normalized_patch_features = (patch_features - patch_features.mean()) / patch_features.std()
+        features.append(normalized_patch_features)
     
     features = np.array(features)
-    normalised_features = (features - features.mean(axis=0, keepdims=True)) / features.std(axis=0, keepdims=True)
+    # normalised_features = (features - features.mean(axis=0, keepdims=True)) / features.std(axis=0, keepdims=True)
+    normalised_features = features
     pts = np.array(accepted_pts)
     # End
 
@@ -121,43 +122,44 @@ def mean_shift_clustering(features, bandwidth):
                     3. bandwidth: bandwith value
     """
     # YOUR CODE HERE
-    feature_tuples = list(map(tuple, features))
-
-    accept_radius = bandwidth / 2
+    accept_radius = bandwidth * (1 / 2)
     threshold = 0.01
     cluster_labels = {}
 
     clusters = []
-    for feature in feature_tuples:
-        clusters.append({'centroid': feature, 'cluster_points': set([feature])})
-        cluster_labels[feature] = -1
+    for feature in features:
+        clusters.append({'centroid': feature, 'cluster_points': set([tuple(feature)])})
+        cluster_labels[tuple(feature)] = -1
 
     while True:
         print("Iterate")
         new_clusters = []
         # Shift centroids
         converged = True
+        len_temp = len(clusters)
+        i = 0
         for cluster in clusters:
+            # print(i, "of", len_temp)
+            # i += 1
             centroid = cluster['centroid']
-            in_bandwidth = []
-            for feature in feature_tuples:
-                norm = np.linalg.norm(np.subtract(centroid, feature))
-                if(norm < bandwidth):
-                    in_bandwidth.append(feature)
-            
+            absorbed = False
+            for new_cluster in new_clusters:
+                if(np.linalg.norm(np.subtract(centroid, new_cluster['centroid'])) < accept_radius):
+                    absorbed = True
+                    new_cluster['cluster_points'] = new_cluster['cluster_points'].union(cluster['cluster_points'])
+                    break
+            if(absorbed):
+                continue
+
+            feature_norms = np.linalg.norm(np.subtract(features, centroid), axis=1)
+            in_bandwidth_index = np.nonzero(feature_norms < bandwidth)
+            in_bandwidth = features[in_bandwidth_index]
             new_centroid = np.average(in_bandwidth, axis=0)
 
             if(np.linalg.norm(np.subtract(centroid, new_centroid)) > threshold):
                 converged = False
             
-            absorbed = False
-            for new_cluster in new_clusters:
-                if(np.linalg.norm(np.subtract(new_centroid, new_cluster['centroid'])) < accept_radius):
-                    absorbed = True
-                    new_cluster['cluster_points'] = new_cluster['cluster_points'].union(cluster['cluster_points'])
-                    break
-            if(not absorbed):
-                new_clusters.append({'centroid': new_centroid, 'cluster_points': cluster['cluster_points']})
+            new_clusters.append({'centroid': new_centroid, 'cluster_points': cluster['cluster_points']})
             
         clusters = new_clusters
         if(converged):
@@ -428,12 +430,13 @@ def score_proposal(texels, a_score_count_min=3):
     Returns:
         a_score: A-score calculated from the texels. If there are no sufficient texels, return 1000.    
     """
+    if(len(texels) < a_score_count_min):
+        return 1000
 
     K, U, V, C = texels.shape
 
     # YOUR CODE HERE
-    if(len(texels) < a_score_count_min):
-        return 1000
+
 
 
     normalized_texels = []
@@ -521,7 +524,7 @@ def template_match(img, proposal, threshold):
     a = proposal[0]['pt']
     b = proposal[1]['pt']
     c = proposal[2]['pt']
-    d = b + (a - b) + (c - b)
+    d = a + (b - a) + (c - a)
 
     min_h = min([a[0], b[0], c[0], d[0]])
     max_h = max([a[0], b[0], c[0], d[0]])
@@ -530,6 +533,7 @@ def template_match(img, proposal, threshold):
     template = img[min_h:max_h, min_w:max_w]
     border_h = (template.shape[0] // 2) + 1
     border_w = (template.shape[1] // 2) + 1
+    print(a, b, c, d)
     padded_img = cv2.copyMakeBorder(img, border_h, border_h, border_w, border_w, cv2.BORDER_REFLECT)
     match_result = cv2.matchTemplate(padded_img, template, method=cv2.TM_CCORR_NORMED)
     response = non_max_suppression(match_result, (border_h, border_w), threshold=threshold)
@@ -556,7 +560,7 @@ def maxima2grid(img, proposal, response):
     a = proposal[0]['pt']
     b = proposal[1]['pt']
     c = proposal[2]['pt']
-    d = b + (a - b) + (c - b)
+    d = a + (b - a) + (c - a)
 
     min_h = min([a[0], b[0], c[0], d[0]])
     max_h = max([a[0], b[0], c[0], d[0]])
@@ -599,7 +603,7 @@ def refine_grid(img, proposal, points_grid):
     a = proposal[0]['pt']
     b = proposal[1]['pt']
     c = proposal[2]['pt']
-    d = b + (a - b) + (c - b)
+    d = a + (b - a) + (c - a)
 
     min_h = min([a[0], b[0], c[0], d[0]])
     max_h = max([a[0], b[0], c[0], d[0]])
@@ -611,6 +615,7 @@ def refine_grid(img, proposal, points_grid):
 
     clustering = mean_shift_clustering(points_grid, bandwidth=bandwidth)
     points = clustering['cluster_centers_']
+    points = np.array(points).astype(int)
 
     # END
 
@@ -637,8 +642,50 @@ def grid2latticeunit(img, proposal, points):
     """
 
     # YOUR CODE HERE
-    print("Proposal: ", proposal)
-    print("Points: ", points)
+    # print("Proposal: ", proposal)
+    # print("Points: ", points)
+    edges = []
+
+    # a = proposal[0]['pt']
+    # b = proposal[1]['pt']
+    # c = proposal[2]['pt']
+
+    # M = cv2.getAffineTransform(np.array([a, b, c])[:, [1, 0]].astype(np.float32), np.array([(0, 0), (0, 1), (1, 0)]).astype(np.float32))
+
+    # transformed_points = []
+    # for point in points:
+    #     transformed_point = np.flip(np.transpose(np.matmul(M, np.transpose(np.append(np.flip(point, axis=0), 1)))), axis=0)
+    #     transformed_points.append(transformed_point)
+    
+    # # print(np.array(transformed_point))
+    
+    # for i, point in enumerate(transformed_points):
+    #     for j, otherPoint in enumerate(transformed_points):
+    #         if(np.array_equal(point, otherPoint)):
+    #             continue
+    #         if(np.linalg.norm(np.subtract(point, otherPoint)) <= 1.2):
+    #             edges.append([points[i], points[j]])
+
+    for point in points:
+        # Get nearby points
+        point_norms = np.linalg.norm(np.subtract(points, point), axis=1)
+        nearby_index = np.nonzero(point_norms < 50)
+        nearby_points = points[nearby_index]
+            
+        local_proposal = get_proposal(nearby_points, 0.2, 10)
+        for proposal_a in local_proposal:
+            original_a = proposal_a['pt']
+            transformed_a = proposal_a['pt_int']
+            for proposal_b in local_proposal:
+                original_b = proposal_b['pt']
+                transformed_b = proposal_b['pt_int']
+                if(np.array_equal(transformed_a, transformed_b)):
+                    continue
+                if(abs(np.linalg.norm(np.subtract(transformed_a, transformed_b)) - 1) < 0.1):
+                    edges.append([original_a, original_b])
+
+    edges = np.array(edges)
+
     # END
 
     return edges
