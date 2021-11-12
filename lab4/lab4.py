@@ -596,6 +596,22 @@ def refine_grid(img, proposal, points_grid):
     """
     # YOUR CODE HERE
 
+    a = proposal[0]['pt']
+    b = proposal[1]['pt']
+    c = proposal[2]['pt']
+    d = b + (a - b) + (c - b)
+
+    min_h = min([a[0], b[0], c[0], d[0]])
+    max_h = max([a[0], b[0], c[0], d[0]])
+    min_w = min([a[1], b[1], c[1], d[1]])
+    max_w = max([a[1], b[1], c[1], d[1]])
+
+    basis_size = np.sqrt((max_h - min_h) ** 2 + (max_w - min_w) ** 2)
+    bandwidth = basis_size / 5
+
+    clustering = mean_shift_clustering(points_grid, bandwidth=bandwidth)
+    points = clustering['cluster_centers_']
+
     # END
 
     return points
@@ -621,7 +637,8 @@ def grid2latticeunit(img, proposal, points):
     """
 
     # YOUR CODE HERE
-
+    print("Proposal: ", proposal)
+    print("Points: ", points)
     # END
 
     return edges
