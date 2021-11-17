@@ -132,15 +132,13 @@ def mean_shift_clustering(features, bandwidth):
         cluster_labels[tuple(feature)] = -1
 
     while True:
-        print("Iterate")
+        print("Processing")
         new_clusters = []
         # Shift centroids
         converged = True
         len_temp = len(clusters)
         i = 0
         for cluster in clusters:
-            # print(i, "of", len_temp)
-            # i += 1
             centroid = cluster['centroid']
             absorbed = False
             for new_cluster in new_clusters:
@@ -209,7 +207,6 @@ def cluster(img, pts, features, bandwidth, tau1, tau2, gamma_h):
     clusters = {}
     tuned_banedwidth = bandwidth
     for i in range(10000):
-        print("Tuning bandwidth", tuned_banedwidth)
         clusters = mean_shift_clustering(features, tuned_banedwidth)
         if(len(clusters) < len(pts) / 3):
             break
@@ -222,22 +219,18 @@ def cluster(img, pts, features, bandwidth, tau1, tau2, gamma_h):
         cluster_features[label].append(features[id])
         cluster_points[label].append(pts[id])
 
-    print("Processing Clusters")
     processed_clusters = []
     for cluster_id, feature_set in enumerate(cluster_features):
         feature_set_size = len(feature_set)
         if(feature_set_size < tau1):
-            print("Too small")
             continue
         if(feature_set_size < tau2):
-            print("Just right")
             processed_clusters.append(np.array(cluster_points[cluster_id]))
             continue
         
-        print("Too big")
         k = (feature_set_size // tau2) + 1
         kmeans_results = KMeans(n_clusters=k, random_state = 0).fit(feature_set)
-        print("KMeans gives", len(kmeans_results.cluster_centers_))
+
         new_clusters = [[] for center in kmeans_results.cluster_centers_]
 
         for id, label in enumerate(kmeans_results.labels_):
@@ -328,9 +321,9 @@ def get_proposal(pts_cluster, tau_a, X):
             ba = b - a
             ca = c - a
             cosine = np.dot(ba, ca) / (np.linalg.norm(ba) * np.linalg.norm(ca))
-            # print(cosine)
+
             angle = np.arccos(max(min(cosine, 1), -1)) # clamp to [-1, 1] due to floating point errors
-            # print(angle)
+
             if(abs(angle) < 20 * (math.pi / 180) or angle > 120 * (math.pi / 180)):
                 continue
 
@@ -394,20 +387,7 @@ def find_texels(img, proposal, texel_size=50):
     """
     # YOUR CODE HERE
     texels = []
-    # triplets = combinations(proposal, 3)
-    # for triplet in triplets:
-    #     corners_src = np.array(list(map(lambda x: list(x['pt']), triplet)))
-    #     point_fourth = corners_src[1] + (corners_src[0] - corners_src[1]) + (corners_src[2] - corners_src[1])
-    #     # print('The predicted 4th point:', point_fourth)
-    #     corners_src = np.concatenate([corners_src, [point_fourth]])
-    #     corners_src = np.array(corners_src).astype(np.float32)
-    #     corners_dst = np.float32([[ 0,  0],
-    #                             [texel_size,  0],
-    #                             [texel_size, texel_size],
-    #                             [0, texel_size]])
-    #     matrix_projective = cv2.getPerspectiveTransform(corners_src[:, [1, 0]], corners_dst) # transpose (h, w), as the input argument of cv2.getPerspectiveTransform is (w, h) ordering
-    #     texel = cv2.warpPerspective(img, matrix_projective, (texel_size, texel_size))
-    #     texels.append(texel)
+
     triplets = combinations(proposal, 3)
     for triplet in triplets:
         corners_src = np.array(list(map(lambda x: list(x['pt']), triplet)))
@@ -496,9 +476,7 @@ def score_proposal(texels, a_score_count_min=3):
 
     a_score = 0
     for channel in range(C):
-        # print(texels[:, :, :, channel].shape)
         combined_texels_channel = normalized_texels[:, :, :, channel]
-        # print(combined_texels_channel)
         channel_a_score = 0
         for i in range(U):
             for j in range(V):
@@ -581,7 +559,7 @@ def template_match(img, proposal, threshold):
     template = img[min_h:max_h, min_w:max_w]
     border_h = (template.shape[0] // 2) + 1
     border_w = (template.shape[1] // 2) + 1
-    print(a, b, c, d)
+
     padded_img = cv2.copyMakeBorder(img, border_h, border_h, border_w, border_w, cv2.BORDER_REFLECT)
     match_result = cv2.matchTemplate(padded_img, template, method=cv2.TM_CCORR_NORMED)
     response = non_max_suppression(match_result, (border_h, border_w), threshold=threshold)
@@ -669,7 +647,7 @@ def refine_grid(img, proposal, points_grid):
 
     return points
 
-def grid2latticeunit(img, proposal, points):
+def grid2latticeunit(img, proposal, points, window=100):
     """
     Convert each lattice grid point into integer lattice grid.
 
@@ -690,34 +668,12 @@ def grid2latticeunit(img, proposal, points):
     """
 
     # YOUR CODE HERE
-    # print("Proposal: ", proposal)
-    # print("Points: ", points)
+
     edges = []
-
-    # a = proposal[0]['pt']
-    # b = proposal[1]['pt']
-    # c = proposal[2]['pt']
-
-    # M = cv2.getAffineTransform(np.array([a, b, c])[:, [1, 0]].astype(np.float32), np.array([(0, 0), (0, 1), (1, 0)]).astype(np.float32))
-
-    # transformed_points = []
-    # for point in points:
-    #     transformed_point = np.flip(np.transpose(np.matmul(M, np.transpose(np.append(np.flip(point, axis=0), 1)))), axis=0)
-    #     transformed_points.append(transformed_point)
-    
-    # # print(np.array(transformed_point))
-    
-    # for i, point in enumerate(transformed_points):
-    #     for j, otherPoint in enumerate(transformed_points):
-    #         if(np.array_equal(point, otherPoint)):
-    #             continue
-    #         if(np.linalg.norm(np.subtract(point, otherPoint)) <= 1.2):
-    #             edges.append([points[i], points[j]])
-
     for point in points:
         # Get nearby points
         point_norms = np.linalg.norm(np.subtract(points, point), axis=1)
-        nearby_index = np.nonzero(point_norms < 100)
+        nearby_index = np.nonzero(point_norms < window)
         nearby_points = points[nearby_index]
             
         local_proposal = get_proposal(nearby_points, 0.2, 10)
