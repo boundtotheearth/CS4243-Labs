@@ -41,7 +41,7 @@ def detect_points(img, min_distance, rou, pt_num, patch_size, tau_rou, gamma_rou
             patch_keypoints = []
             while(scaled_rou > tau_rou):
                 patch_keypoints = cv2.goodFeaturesToTrack(patch, Np, scaled_rou, min_distance)
-                if(len(patch_keypoints) >= Np):
+                if(patch_keypoints is not None and len(patch_keypoints) >= Np):
                     break
                 scaled_rou *= gamma_rou
 
@@ -394,17 +394,65 @@ def find_texels(img, proposal, texel_size=50):
     """
     # YOUR CODE HERE
     texels = []
+    # triplets = combinations(proposal, 3)
+    # for triplet in triplets:
+    #     corners_src = np.array(list(map(lambda x: list(x['pt']), triplet)))
+    #     point_fourth = corners_src[1] + (corners_src[0] - corners_src[1]) + (corners_src[2] - corners_src[1])
+    #     # print('The predicted 4th point:', point_fourth)
+    #     corners_src = np.concatenate([corners_src, [point_fourth]])
+    #     corners_src = np.array(corners_src).astype(np.float32)
+    #     corners_dst = np.float32([[ 0,  0],
+    #                             [texel_size,  0],
+    #                             [texel_size, texel_size],
+    #                             [0, texel_size]])
+    #     matrix_projective = cv2.getPerspectiveTransform(corners_src[:, [1, 0]], corners_dst) # transpose (h, w), as the input argument of cv2.getPerspectiveTransform is (w, h) ordering
+    #     texel = cv2.warpPerspective(img, matrix_projective, (texel_size, texel_size))
+    #     texels.append(texel)
     triplets = combinations(proposal, 3)
     for triplet in triplets:
         corners_src = np.array(list(map(lambda x: list(x['pt']), triplet)))
-        point_fourth = corners_src[1] + (corners_src[0] - corners_src[1]) + (corners_src[2] - corners_src[1])
-        # print('The predicted 4th point:', point_fourth)
-        corners_src = np.concatenate([corners_src, [point_fourth]])
+        x = 0
+        y = 1
+        z = 2
+        xy = np.linalg.norm(np.subtract(corners_src[x], corners_src[y]))
+        yz = np.linalg.norm(np.subtract(corners_src[y], corners_src[z]))
+        xz = np.linalg.norm(np.subtract(corners_src[x], corners_src[z]))
+
+        # Reorder to a, b, c
+        if(xy > xz and xy > yz):
+            a = z
+            b = x
+            c = y
+        elif(xz > xy and xz > yz):
+            a = y
+            b = x
+            c = z
+        else:
+            a = x
+            b = y
+            c = z
+        
+        corners_int = np.array(list(map(lambda x: list(x['pt_int']), triplet)))
+        if(np.array_equal(corners_int[a], corners_int[b]) or np.array_equal(corners_int[a], corners_int[c]) or np.array_equal(corners_int[c], corners_int[b])):
+            continue
+        # Refine based on angle
+        ba = corners_int[b] - corners_int[a]
+        ca = corners_int[c] - corners_int[a]
+        if(abs(np.linalg.norm(ba) - 1) > 0.1 or abs(np.linalg.norm(ca) - 1) > 0.1):
+            continue
+        cosine = np.dot(ba, ca) / (np.linalg.norm(ba) * np.linalg.norm(ca))
+        angle = np.arccos(max(min(cosine, 1), -1)) # clamp to [-1, 1] due to floating point errors
+        if(abs(angle - (math.pi / 2)) > 0.1):
+            continue
+
+        d = corners_src[a] + (corners_src[b] - corners_src[a]) + (corners_src[c] - corners_src[a])
+
+        corners_src = [corners_src[a], corners_src[b], corners_src[c], d]
         corners_src = np.array(corners_src).astype(np.float32)
         corners_dst = np.float32([[ 0,  0],
                                 [texel_size,  0],
-                                [texel_size, texel_size],
-                                [0, texel_size]])
+                                [0, texel_size],
+                                [texel_size, texel_size]])
         matrix_projective = cv2.getPerspectiveTransform(corners_src[:, [1, 0]], corners_dst) # transpose (h, w), as the input argument of cv2.getPerspectiveTransform is (w, h) ordering
         texel = cv2.warpPerspective(img, matrix_projective, (texel_size, texel_size))
         texels.append(texel)
@@ -669,7 +717,7 @@ def grid2latticeunit(img, proposal, points):
     for point in points:
         # Get nearby points
         point_norms = np.linalg.norm(np.subtract(points, point), axis=1)
-        nearby_index = np.nonzero(point_norms < 50)
+        nearby_index = np.nonzero(point_norms < 100)
         nearby_points = points[nearby_index]
             
         local_proposal = get_proposal(nearby_points, 0.2, 10)
